@@ -18,12 +18,12 @@ Actor::Actor(int imageID, int startX, int startY, Direction startDirection, doub
 //------------------------------------------
 Actor::~Actor()
 {
-    world.release();    //FIXME - is this necessary?
+    
 }
 //------------------------------------------
 bool Actor::isAlive()
 {
-    return isAlive();
+    return stillAlive;
 }
 //------------------------------------------
 void Actor::setDead()
@@ -36,9 +36,9 @@ std::unique_ptr<StudentWorld>& Actor::getWorld()
     return world;
 }
 //------------------------------------------
-void Actor::setWorld(const StudentWorld & world)
+void Actor::setWorld(StudentWorld * worldPtr)
 {
-    //this->world = std::move(std::unique_ptr<StudentWorld>(&world));
+    this->world = std::unique_ptr<StudentWorld>(worldPtr);
 }
 
 
@@ -55,6 +55,8 @@ Ice::Ice(int startX, int startY): Actor(TID_EARTH, startX, startY, right, ICE_SI
 void Ice::doSomething(){ return; } //implemented only because it ineherents from pure virtual function
 //------------------------------------------------------------------------------------
 
+
+
 /*
  *
  TUNNELMAN CLASS IMPLEMENTATION BELOW
@@ -70,15 +72,54 @@ TunnelMan::TunnelMan(): Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y
 void TunnelMan::doSomething()
 {
     int key;
+    
+    //First, get the key that was pressed and respond accordingly
     if(getWorld()->getKey(key))
     {
         switch(key)
         {
             case KEY_PRESS_LEFT:
+            {
                 if(getX() > 0)
+                {
                     moveTo(getX()-1, getY());
+                    setDirection(left);
+                    
+                }
+                break;
+            }
+            case KEY_PRESS_RIGHT:
+            {
+                if(getX() < VIEW_WIDTH - IMAGE_OFFSET)
+                {
+                    moveTo(getX()+1, getY());
+                    setDirection(right);
+                }
+                break;
+            }
+            case KEY_PRESS_UP:
+            {
+                if(getY() < VIEW_HEIGHT - IMAGE_OFFSET)
+                {
+                    moveTo(getX(), getY() + 1);
+                    setDirection(up);
+                }
+                break;
+            }
+            case KEY_PRESS_DOWN:
+            {
+                if(getY() > 0)
+                {
+                    moveTo(getX(), getY() - 1);
+                    setDirection(down);
+                }
+                break;
+            }
         }
     }
+    
+    //Next, delete any ice at TunnelMan's current position
+    getWorld()->deleteIce(getX(), getY());
 }
 //----------------------------
 void TunnelMan::incGoldNugs()

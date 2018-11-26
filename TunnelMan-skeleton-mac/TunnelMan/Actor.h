@@ -6,6 +6,7 @@
 #define STANDARD_IMAGE_SIZE         (1) //FIXME- is this necessary?
 #define COMPLETELY_IN_BACKGROUND    (10)
 #define COMPLETELY_IN_FOREGROUND    (0) //FIXME - is this necessary?
+#define IMAGE_OFFSET                (4)
 #define ICE_DEPTH                   (3)
 #define ICE_SIZE                    (0.25)
 #include "GraphObject.h"
@@ -25,7 +26,7 @@ public:
     Actor(int imageID, int startX, int startY, Direction startDirection, double size = 1.0, int depth = 0, bool shouldDisplay = true);
     ~Actor();
     std::unique_ptr<StudentWorld>& getWorld();
-    void setWorld(const StudentWorld & world);
+    void setWorld(StudentWorld * worldPtr);
     bool isAlive();
     void setDead();
     virtual void doSomething() = 0;
@@ -57,7 +58,7 @@ public:
     void decNumSquirts();
     
 private:
-    unsigned int health; //FIXME -should i make a base class for protestors/tunnelman w/ health/annoy member?
+    unsigned int health; //FIXME -should I make a base class for protestors/tunnelman w/ health/annoy member?
     unsigned int gold_nuggets;
     unsigned int sonar_charges;
     unsigned int num_squirts;
