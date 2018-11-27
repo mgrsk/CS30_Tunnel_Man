@@ -17,10 +17,12 @@ class Ice;
 class StudentWorld : public GameWorld
 {
 private:
+    size_t ticksPassed;     //Keeps track of how many ticks passed per life
+    
     std::unique_ptr<Ice> iceField[VIEW_WIDTH][VIEW_HEIGHT - IMAGE_OFFSET];
     std::unique_ptr<TunnelMan> player;
-    std::vector<std::unique_ptr<Actor>> gameObjects;
-    size_t ticksPassed;
+    std::vector<std::unique_ptr<Actor>> gameObjects; //Not needed for part 1. Will be implemented in part 2
+    
     
     void makeIceField();    //Generates the ice field in the game
     void destroyIceField(); //Destroys the ice field during cleanup

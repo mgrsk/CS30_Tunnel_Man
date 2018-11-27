@@ -11,8 +11,10 @@ StudentWorld::StudentWorld(std::string assetDir): GameWorld(assetDir)
 {
 }
 //---------------------------------------------------------------
-StudentWorld::~StudentWorld()   //Destructor is empty because cleanup() handles this process
+StudentWorld::~StudentWorld()
 {
+    destroyIceField();  //De-initializes all ice objects
+    player = nullptr;   
 }
 //---------------------------------------------------------------
 void StudentWorld::makeIceField()
@@ -51,6 +53,7 @@ int StudentWorld::move()
 void StudentWorld::cleanUp()
 {
     destroyIceField();  //De-initializes all ice objects
+    player = nullptr;
 }
 //---------------------------------------------------------------
 void StudentWorld::deleteIce(unsigned int xCord, unsigned int yCord)
