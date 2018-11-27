@@ -30,8 +30,6 @@ public:
     bool isAlive();
     void setDead();
     virtual void doSomething() = 0;
-    void moveOneSquareinDirection(Direction d){} //FIXME - do i need this?
-    
 };
 
 //------------------------------------------
