@@ -10,15 +10,14 @@
  *
  */
 
-Actor::Actor(int imageID, int startX, int startY, Direction startDirection, double size, int depth, bool shouldDisplay): GraphObject(imageID, startX, startY, startDirection, size, depth)
+Actor::Actor(int imageID, int startX, int startY, Direction startDirection, double size, int depth, bool shouldDisplay): GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true)
 {
     setVisible(shouldDisplay);
-    stillAlive = true;
 }
 //------------------------------------------
 Actor::~Actor()
 {
-    
+    world.release();    //Releasing unique pointer so that the world is not deleted.
 }
 //------------------------------------------
 bool Actor::isAlive()
@@ -50,9 +49,14 @@ void Actor::setWorld(StudentWorld * worldPtr)
  *
  */
 
-Ice::Ice(int startX, int startY): Actor(TID_EARTH, startX, startY, right, ICE_SIZE, ICE_DEPTH){}
+Ice::Ice(int startX, int startY): Actor(TID_EARTH, startX, startY, right, ICE_SIZE, ICE_DEPTH)
+{
+}
 //------------------------------------------------------------------------------------
-void Ice::doSomething(){ return; } //implemented only because it ineherents from pure virtual function
+void Ice::doSomething() //Implemented only because it ineherents from pure virtual function
+{
+    return;
+}
 //------------------------------------------------------------------------------------
 
 
@@ -69,6 +73,10 @@ TunnelMan::TunnelMan(): Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y
     gold_nuggets = 0;
 }
 //------------------------------------------------------------------------------------
+TunnelMan::~TunnelMan() //Function is empty because no deallocation is needed at this time
+{
+}
+//------------------------------------------------------------------------------------
 void TunnelMan::doSomething()
 {
     int key;
@@ -80,39 +88,38 @@ void TunnelMan::doSomething()
         {
             case KEY_PRESS_LEFT:
             {
-                if(getX() > 0)
+                if(getX() > 0 && getDirection() == left)
                 {
                     moveTo(getX()-1, getY());
-                    setDirection(left);
-                    
                 }
+                setDirection(left);
                 break;
             }
             case KEY_PRESS_RIGHT:
             {
-                if(getX() < VIEW_WIDTH - IMAGE_OFFSET)
+                if(getX() < VIEW_WIDTH - IMAGE_OFFSET && getDirection() == right)
                 {
                     moveTo(getX()+1, getY());
-                    setDirection(right);
                 }
+                setDirection(right);
                 break;
             }
             case KEY_PRESS_UP:
             {
-                if(getY() < VIEW_HEIGHT - IMAGE_OFFSET)
+                if(getY() < VIEW_HEIGHT - IMAGE_OFFSET && getDirection() == up)
                 {
                     moveTo(getX(), getY() + 1);
-                    setDirection(up);
                 }
+                setDirection(up);
                 break;
             }
             case KEY_PRESS_DOWN:
             {
-                if(getY() > 0)
+                if(getY() > 0 && getDirection() == down)
                 {
                     moveTo(getX(), getY() - 1);
-                    setDirection(down);
                 }
+                setDirection(down);
                 break;
             }
         }

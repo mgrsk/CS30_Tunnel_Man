@@ -7,6 +7,14 @@ GameWorld* createStudentWorld(string assetDir)
 	return new StudentWorld(assetDir);
 }
 //---------------------------------------------------------------
+StudentWorld::StudentWorld(std::string assetDir): GameWorld(assetDir)
+{
+}
+//---------------------------------------------------------------
+StudentWorld::~StudentWorld()   //Destructor is empty because cleanup() handles this process
+{
+}
+//---------------------------------------------------------------
 void StudentWorld::makeIceField()
 {
     for(int i = 0; i < VIEW_WIDTH; ++i)
@@ -23,6 +31,7 @@ void StudentWorld::makeIceField()
 //---------------------------------------------------------------
 int StudentWorld::init()
 {
+    ticksPassed = 0;
     makeIceField();
     player = std::unique_ptr<TunnelMan>(new TunnelMan);
     player->setWorld(this);
@@ -31,49 +40,45 @@ int StudentWorld::init()
 //---------------------------------------------------------------
 int StudentWorld::move()
 {
-    // This code is here merely to allow the game to build, run, and terminate after you hit enter a few times.
-    // Notice that the return value GWSTATUS_PLAYER_DIED will cause our framework to end the current level.
     player->doSomething();
+    ++ticksPassed;  //FIXME - find proper place for this in the function
     if(player->isAlive())
-    return GWSTATUS_CONTINUE_GAME;
+        return GWSTATUS_CONTINUE_GAME;
     decLives();
     return GWSTATUS_PLAYER_DIED;
 }
 //---------------------------------------------------------------
 void StudentWorld::cleanUp()
 {
-    //FIXME - do i need to manually clean up even though there are smart pointers?
-    //Make this its own function if it's necessary
-    for(int i = 0; i < VIEW_WIDTH; ++i)
-    {
-        for(int j = 0; j < VIEW_HEIGHT - IMAGE_OFFSET; ++j)
-        {
-            iceField[i][j] = nullptr;
-        }
-    }
-    
-    
-    
-    
+    destroyIceField();  //De-initializes all ice objects
 }
 //---------------------------------------------------------------
-void StudentWorld::deleteIce(unsigned int xCord, unsigned int yCord) //FIXME - not deleting properly
+void StudentWorld::deleteIce(unsigned int xCord, unsigned int yCord)
 {
-    int newX;   //Will store the x-Coordinates near TunnelMan
-    int newY;   //Will store the y-Coordinates near TunnelMan
+    int newX;   //Will store the x-Coordinates in TunnelMan's 4x4 image
+    int newY;   //Will store the y-Coordinates in TunnelMan's 4x4 image
     
-    for(int i = 0; i < IMAGE_OFFSET; ++i)
+    for(int i = 0; i < IMAGE_OFFSET; ++i)   //Iterating through x coordinates of image
     {
-        for(int j = 0; j < IMAGE_OFFSET; ++j)
+        for(int j = 0; j < IMAGE_OFFSET; ++j)   //Iterating through y coordinates of image
         {
             newX = xCord + i;
             newY = yCord + j;
             
             //Validating that coordinate is in bounds
             if(newX < VIEW_WIDTH && newY < VIEW_HEIGHT - IMAGE_OFFSET)
-                iceField[i][j] = nullptr;
+                iceField[newX][newY] = nullptr;     //Frees unique pointer and deletes ice at that point
         }
     }
 }
-
-// Students:  Add code to this file (if you wish), StudentWorld.h, Actor.h and Actor.cpp
+//---------------------------------------------------------------
+void StudentWorld::destroyIceField()
+{
+    for(int i = 0; i < VIEW_WIDTH; ++i)
+    {
+        for(int j = 0; j < VIEW_HEIGHT - IMAGE_OFFSET; ++j)
+        {
+            iceField[i][j] = nullptr;   //Frees unique pointer and deletes ice at that point
+        }
+    }
+}
