@@ -123,6 +123,8 @@ bool StudentWorld::areaIsClear(unsigned int x, unsigned int y)
 void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general and include goldnuggets
 {
 	barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
+    //int goldCount = std::max(5 - getLevel() / 2, 2); FIXME - implement this
+    int goldCount = 10; //FIXME - for testing only
     
     int xCoord;     //Will store a randomly generated x-coordinate
     int yCoord;     //Will store a randomly generated y-coordinate
@@ -141,6 +143,20 @@ void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general
 
 		gameObjects.push_back(std::unique_ptr<Actor>(new BarrelOfOil(xCoord, yCoord, this)));
 	}
+    
+    for(int i = 0; i < goldCount; ++i)
+    {
+        xCoord = rand() % (MAX_COORDINATE + 1);
+        yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
+        
+        while (!areaIsClear(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
+        {
+            xCoord = rand() % (MAX_COORDINATE + 1);
+            yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
+        }
+        //Creating gold that is invisible but can be picked up by the player
+        gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false, true)));
+    }
 }
 //---------------------------------------------------------------
 double StudentWorld::getTunnelManDistance(unsigned int x, unsigned int y) 
@@ -168,4 +184,9 @@ void StudentWorld::askPlayerAndObjectsToDoSomething()
 	player->doSomething();
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
 		(*it)->doSomething();
+}
+//---------------------------------------------------------------
+void StudentWorld::incTunnelManGold()
+{
+    player->incGoldNugs();
 }

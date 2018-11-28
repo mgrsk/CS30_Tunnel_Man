@@ -176,13 +176,12 @@ GOODIE CLASS IMPLEMENTATION BELOW
  */
 
 
-Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, bool shouldDisplay, bool pickup):
-    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
-    canBePickedUp(pickup)
+Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, bool shouldDisplay):
+    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay), scoreValue(score), soundToPlay(sound)
 {
 }
 //-----------------------------------------------------------
-bool Goodie::checkIfTunnelManPickedUp(int soundToPlay, int scoreToIncrease)
+bool Goodie::checkIfTunnelManPickedUp()
 {
     double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
     
@@ -190,12 +189,12 @@ bool Goodie::checkIfTunnelManPickedUp(int soundToPlay, int scoreToIncrease)
     {
         setDead();
         getWorld()->playSound(soundToPlay);
-        getWorld()->increaseScore(scoreToIncrease);
+        getWorld()->increaseScore(scoreValue);
         return true;
     }
     return false;
 }
-
+//------------------------------------------
 
 /*
 *
@@ -204,7 +203,7 @@ BARREL OF OIL CLASS IMPLEMENTATION BELOW
 */
 
 BarrelOfOil::BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world): 
-	Goodie(TID_BARREL, startX, startY, world, false, true)
+	Goodie(TID_BARREL, startX, startY, world, OIL_SCORE, SOUND_FOUND_OIL, false)
 {
 }
 //------------------------------------------
@@ -215,20 +214,55 @@ void BarrelOfOil::doSomething()
 
 	double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
 
-	if (distanceFromTunnelMan <= 4.0 && !isVisible())
+	if (distanceFromTunnelMan <= MAX_DISTANCE_INVISIBLE && !isVisible())
 	{
 		setVisible(true);
 		return;
 	}
-	else if(checkIfTunnelManPickedUp(SOUND_FOUND_OIL, 1000))
+	else if(checkIfTunnelManPickedUp())
     {
 		getWorld()->decBarrels();
 	}
 }
-
+//------------------------------------------
 
 /*
  *
  GOLDNUGGET CLASS IMPLEMENTATION BELOW
  *
  */
+
+GoldNugget::GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup): Goodie(TID_GOLD, startX, startY, world, GOLD_SCORE_PICKUP, SOUND_GOT_GOODIE, shouldDisplay), canBePickedUpByTunnelMan(canPickup)
+{
+}
+
+
+
+void GoldNugget::doSomething()
+{
+    if(canBePickedUpByTunnelMan)
+    {
+        if(!isAlive())
+            return;
+        
+        double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+        
+        if (distanceFromTunnelMan <= MAX_DISTANCE_INVISIBLE && !isVisible())
+        {
+            setVisible(true);
+            return;
+        }
+        else if(checkIfTunnelManPickedUp())
+        {
+            getWorld()->incTunnelManGold();
+        }
+    }
+    else //FIXME - implement protestor bribe code
+    {
+        
+    }
+}
+
+
+
+void GoldNugget::checkIfProtestorPickedUp(){}

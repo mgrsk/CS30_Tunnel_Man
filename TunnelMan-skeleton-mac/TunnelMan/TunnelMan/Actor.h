@@ -9,6 +9,10 @@
 #define ICE_DEPTH                   (3)
 #define ICE_SIZE                    (0.25)
 #define GOODIE_DEPTH				(2)
+#define OIL_SCORE                   (1000)
+#define GOLD_SCORE_PICKUP           (10)
+#define GOLD_SCORE_BRIBE            (25)
+#define MAX_DISTANCE_INVISIBLE      (4)
 #include "GraphObject.h"
 #include "StudentWorld.h"
 #include <memory>
@@ -79,13 +83,14 @@ public:
 class Goodie : public Actor
 {
 private:
-    bool canBePickedUp;
+    int scoreValue;
+    int soundToPlay;
     bool atRest;    //FIXME - implement this
     int ticksSinceLastAction; //FIXME - implement this
 public:
-    Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, bool shouldDisplay, bool pickup);
+    Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, bool shouldDisplay);
     virtual void doSomething() = 0;
-    bool checkIfTunnelManPickedUp(int soundToPlay, int scoreToIncrease);
+    bool checkIfTunnelManPickedUp();
 };
 
 
@@ -103,7 +108,10 @@ public:
 
 class GoldNugget : public Goodie
 {
-    GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * worldPtr, bool shouldDisplay, bool pickup);
+private:
+    bool canBePickedUpByTunnelMan;
+public:
+    GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup);
     void doSomething();
     void checkIfProtestorPickedUp();
 };
