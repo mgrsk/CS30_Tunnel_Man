@@ -10,14 +10,16 @@
  *
  */
 
-Actor::Actor(int imageID, int startX, int startY, Direction startDirection, double size, int depth, bool shouldDisplay): GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true)
+Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, double size, int depth, bool shouldDisplay): 
+	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true)
 {
+	setWorld(ptr);
     setVisible(shouldDisplay);
 }
 //------------------------------------------
 Actor::~Actor()
 {
-    world.release();    //Releasing unique pointer so that the world is not deleted.
+    world = nullptr;    //FIXME - is this needed?
 }
 //------------------------------------------
 bool Actor::isAlive()
@@ -30,14 +32,14 @@ void Actor::setDead()
     stillAlive = false;
 }
 //------------------------------------------
-std::unique_ptr<StudentWorld>& Actor::getWorld()
+StudentWorld * Actor::getWorld()
 {
     return world;
 }
 //------------------------------------------
 void Actor::setWorld(StudentWorld * worldPtr)
 {
-    this->world = std::unique_ptr<StudentWorld>(worldPtr);
+    this->world = worldPtr;
 }
 
 
@@ -49,7 +51,7 @@ void Actor::setWorld(StudentWorld * worldPtr)
  *
  */
 
-Ice::Ice(int startX, int startY): Actor(TID_EARTH, startX, startY, right, ICE_SIZE, ICE_DEPTH)
+Ice::Ice(unsigned int startX, unsigned int startY): Actor(TID_EARTH, startX, startY, right, nullptr , ICE_SIZE, ICE_DEPTH)
 {
 }
 //------------------------------------------------------------------------------------
@@ -66,7 +68,7 @@ void Ice::doSomething() //Implemented only because it ineherents from pure virtu
  TUNNELMAN CLASS IMPLEMENTATION BELOW
  *
  */
-TunnelMan::TunnelMan(): Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right)
+TunnelMan::TunnelMan(StudentWorld * world): Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world)
 {
     num_squirts = 5;
     sonar_charges = 1;
@@ -97,7 +99,7 @@ void TunnelMan::doSomething()
             }
             case KEY_PRESS_RIGHT:
             {
-                if(getX() < VIEW_WIDTH - IMAGE_OFFSET && getDirection() == right)
+                if(getX() < MAX_COORDINATE && getDirection() == right)
                 {
                     moveTo(getX()+1, getY());
                 }
@@ -106,7 +108,7 @@ void TunnelMan::doSomething()
             }
             case KEY_PRESS_UP:
             {
-                if(getY() < VIEW_HEIGHT - IMAGE_OFFSET && getDirection() == up)
+                if(getY() < MAX_COORDINATE && getDirection() == up)
                 {
                     moveTo(getX(), getY() + 1);
                 }
@@ -162,3 +164,71 @@ void TunnelMan::decNumSquirts()
         --num_squirts;
 }
 //----------------------------
+
+
+
+//------------------------------------------
+
+/*
+ *
+GOODIE CLASS IMPLEMENTATION BELOW
+ *
+ */
+
+
+Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, bool shouldDisplay, bool pickup):
+    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
+    canBePickedUp(pickup)
+{
+}
+//-----------------------------------------------------------
+bool Goodie::checkIfTunnelManPickedUp(int soundToPlay, int scoreToIncrease)
+{
+    double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+    
+    if(distanceFromTunnelMan <= 3.0)
+    {
+        setDead();
+        getWorld()->playSound(soundToPlay);
+        getWorld()->increaseScore(scoreToIncrease);
+        return true;
+    }
+    return false;
+}
+
+
+/*
+*
+BARREL OF OIL CLASS IMPLEMENTATION BELOW
+*
+*/
+
+BarrelOfOil::BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world): 
+	Goodie(TID_BARREL, startX, startY, world, false, true)
+{
+}
+//------------------------------------------
+void BarrelOfOil::doSomething()
+{
+    if(!isAlive())
+        return;
+
+	double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+
+	if (distanceFromTunnelMan <= 4.0 && !isVisible())
+	{
+		setVisible(true);
+		return;
+	}
+	else if(checkIfTunnelManPickedUp(SOUND_FOUND_OIL, 1000))
+    {
+		getWorld()->decBarrels();
+	}
+}
+
+
+/*
+ *
+ GOLDNUGGET CLASS IMPLEMENTATION BELOW
+ *
+ */
