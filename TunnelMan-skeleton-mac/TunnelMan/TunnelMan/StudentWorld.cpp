@@ -109,10 +109,12 @@ double StudentWorld::calculateEuclidianDistance(double x1, double y1, double x2,
 //---------------------------------------------------------------
 bool StudentWorld::areaIsClear(unsigned int x, unsigned int y) 
 {
+    double distance;
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
 	{
-		//Checking if the area within 6 Euclidian units if clear of other objects
-		if(calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY()) < MIN_EUCLIDIAN_DIST)
+		//Checking if the area within 6 Euclidian units is clear of other objects
+        distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+		if(distance < MIN_EUCLIDIAN_DIST)
 			return false;	//Object to be built is too close to another object and cannot be built there
 	}
 	return true;	//No objects within 6 units were found and object can be built
@@ -120,16 +122,20 @@ bool StudentWorld::areaIsClear(unsigned int x, unsigned int y)
 //---------------------------------------------------------------
 void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general and include goldnuggets
 {
-	//barrelCount = 45; //Use this to test barrel distribution
-	this->barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
-	for (size_t i = 0; i < barrelCount; ++i)
+	barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
+    
+    int xCoord;     //Will store a randomly generated x-coordinate
+    int yCoord;     //Will store a randomly generated y-coordinate
+    for (size_t i = 0; i < barrelCount; ++i)
 	{
-		int xCoord = rand() % MAX_COORDINATE;	//Random x coordinate from 0-60 non inclusive. FIXME - check this bound
-		int yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //0-56 non-inclusive
-		while (!areaIsClear(xCoord, yCoord) || (xCoord > 26 && xCoord < 30 && yCoord > 0)) //FIXME - check these bounds
+        
+		xCoord = rand() % (MAX_COORDINATE + 1);	//Random x coordinate from 0-60 inclusive.
+		yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //y coordinate 0-56 non-inclusive
+            
+		while (!areaIsClear(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
 		{
 			//Generate new coordinates because area was not clear or area overlapped vertical shaft
-			xCoord = rand() % MAX_COORDINATE;
+			xCoord = rand() % (MAX_COORDINATE + 1);
 			yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
 		}
 

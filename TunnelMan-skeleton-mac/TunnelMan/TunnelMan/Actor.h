@@ -2,15 +2,13 @@
 #define ACTOR_H_
 
 #define IMAGE_OFFSET                (4)
-#define MAX_COORDINATE				(VIEW_HEIGHT - IMAGE_OFFSET)	//Largest X or Y coordinate an object can have	
+#define MAX_COORDINATE				(VIEW_HEIGHT - IMAGE_OFFSET)//Largest X or Y coordinate an object can have
 #define TUNNEL_MAN_START_X          (30)
 #define TUNNEL_MAN_START_Y          (60)
-#define STANDARD_IMAGE_SIZE         (1) //FIXME- is this necessary?
-#define COMPLETELY_IN_BACKGROUND    (10)//FIXME- is this necessary?
-#define COMPLETELY_IN_FOREGROUND    (0) //FIXME - is this necessary?
+#define STANDARD_IMAGE_SIZE         (1)
 #define ICE_DEPTH                   (3)
 #define ICE_SIZE                    (0.25)
-#define BARREL_DEPTH				(2)
+#define GOODIE_DEPTH				(2)
 #include "GraphObject.h"
 #include "StudentWorld.h"
 #include <memory>
@@ -23,13 +21,13 @@ class Actor : public GraphObject
 {
 private:
     bool stillAlive;
-    std::unique_ptr<StudentWorld> world;    //Allows classes to see the gameworld    
+    StudentWorld * world;    //Allows classes to see the gameworld
 	void setWorld(StudentWorld * worldPtr);
     
 public:
     Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection = right, StudentWorld * ptr = nullptr, double size = 1.0, int depth = 0, bool shouldDisplay = true);
     ~Actor();
-    std::unique_ptr<StudentWorld>& getWorld();
+    StudentWorld * getWorld();
     bool isAlive();
     void setDead();
     virtual void doSomething() = 0;
@@ -66,18 +64,51 @@ public:
     void decGoldNugs();
     void incSonarCharges();
     void decSonarCharges();
-    void incNumSquirts();
+    void incNumSquirts(); //FIXME - may not need these
     void decNumSquirts();
 };
 
 //------------------------------------------
 
-class BarrelOfOil : public Actor
+/*
+*
+* GOODIE CLASSES BELOW
+*
+*/
+
+class Goodie : public Actor
+{
+private:
+    bool canBePickedUp;
+    bool atRest;    //FIXME - implement this
+    int ticksSinceLastAction; //FIXME - implement this
+public:
+    Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, bool shouldDisplay, bool pickup);
+    virtual void doSomething() = 0;
+    bool checkIfTunnelManPickedUp(int soundToPlay, int scoreToIncrease);
+};
+
+
+//------------------------------------------
+
+
+class BarrelOfOil : public Goodie
 {
 public:
 	BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world);
-
 	void doSomething();
 };
+
+//------------------------------------------
+
+class GoldNugget : public Goodie
+{
+    GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * worldPtr, bool shouldDisplay, bool pickup);
+    void doSomething();
+    void checkIfProtestorPickedUp();
+};
+
+
+
 
 #endif // ACTOR_H_

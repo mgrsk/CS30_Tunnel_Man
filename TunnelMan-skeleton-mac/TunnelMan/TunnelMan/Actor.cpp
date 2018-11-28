@@ -19,7 +19,7 @@ Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction st
 //------------------------------------------
 Actor::~Actor()
 {
-    world.release();    //Releasing unique pointer so that the world is not deleted.
+    world = nullptr;    //FIXME - is this needed?
 }
 //------------------------------------------
 bool Actor::isAlive()
@@ -32,14 +32,14 @@ void Actor::setDead()
     stillAlive = false;
 }
 //------------------------------------------
-std::unique_ptr<StudentWorld>& Actor::getWorld()
+StudentWorld * Actor::getWorld()
 {
     return world;
 }
 //------------------------------------------
 void Actor::setWorld(StudentWorld * worldPtr)
 {
-    this->world = std::unique_ptr<StudentWorld>(worldPtr);
+    this->world = worldPtr;
 }
 
 
@@ -168,6 +168,35 @@ void TunnelMan::decNumSquirts()
 
 
 //------------------------------------------
+
+/*
+ *
+GOODIE CLASS IMPLEMENTATION BELOW
+ *
+ */
+
+
+Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, bool shouldDisplay, bool pickup):
+    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
+    canBePickedUp(pickup)
+{
+}
+//-----------------------------------------------------------
+bool Goodie::checkIfTunnelManPickedUp(int soundToPlay, int scoreToIncrease)
+{
+    double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+    
+    if(distanceFromTunnelMan <= 3.0)
+    {
+        setDead();
+        getWorld()->playSound(soundToPlay);
+        getWorld()->increaseScore(scoreToIncrease);
+        return true;
+    }
+    return false;
+}
+
+
 /*
 *
 BARREL OF OIL CLASS IMPLEMENTATION BELOW
@@ -175,12 +204,15 @@ BARREL OF OIL CLASS IMPLEMENTATION BELOW
 */
 
 BarrelOfOil::BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world): 
-	Actor(TID_BARREL, startX, startY, right, world, 1, BARREL_DEPTH)//, false) Must  be false later on
+	Goodie(TID_BARREL, startX, startY, world, false, true)
 {
 }
 //------------------------------------------
 void BarrelOfOil::doSomething()
 {
+    if(!isAlive())
+        return;
+
 	double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
 
 	if (distanceFromTunnelMan <= 4.0 && !isVisible())
@@ -188,11 +220,15 @@ void BarrelOfOil::doSomething()
 		setVisible(true);
 		return;
 	}
-	else if (distanceFromTunnelMan <= 3.0)
-	{
-		setDead();
-		getWorld()->playSound(SOUND_FOUND_OIL);
-		getWorld()->increaseScore(1000);
+	else if(checkIfTunnelManPickedUp(SOUND_FOUND_OIL, 1000))
+    {
 		getWorld()->decBarrels();
 	}
 }
+
+
+/*
+ *
+ GOLDNUGGET CLASS IMPLEMENTATION BELOW
+ *
+ */
