@@ -17,7 +17,38 @@ StudentWorld::StudentWorld(std::string assetDir): GameWorld(assetDir)
 StudentWorld::~StudentWorld()
 {
     destroyIceField();  //De-initializes all ice objects
-    player = nullptr;   
+	player.reset();
+}
+//---------------------------------------------------------------
+int StudentWorld::init()
+{
+	tickCount = 0;
+	makeIceField();
+	player = std::unique_ptr<TunnelMan>(new TunnelMan(this));
+	distributeBarrelsAndGold();
+	return GWSTATUS_CONTINUE_GAME;
+}
+//---------------------------------------------------------------
+int StudentWorld::move()
+{
+	askPlayerAndObjectsToDoSomething();
+	destroyDeadObjects();
+	++tickCount;
+
+	if (barrelCount == 0)
+		return GWSTATUS_FINISHED_LEVEL; //FIXME - does level increase on its own
+
+	if (player->isAlive())
+		return GWSTATUS_CONTINUE_GAME;
+
+	decLives();
+	return GWSTATUS_PLAYER_DIED;
+}
+//---------------------------------------------------------------
+void StudentWorld::cleanUp()
+{
+	destroyIceField();  //De-initializes all ice objects
+	player.reset();
 }
 //---------------------------------------------------------------
 void StudentWorld::makeIceField()
@@ -32,37 +63,6 @@ void StudentWorld::makeIceField()
             }
         }
     }
-}
-//---------------------------------------------------------------
-int StudentWorld::init()
-{
-    tickCount = 0;
-    makeIceField();
-    player = std::unique_ptr<TunnelMan>(new TunnelMan);
-    player->setWorld(this);
-	distributeBarrelsAndGold();
-    return GWSTATUS_CONTINUE_GAME;
-}
-//---------------------------------------------------------------
-int StudentWorld::move()
-{
-	askPlayerAndObjectsToDoSomething();
-    ++tickCount; 
-
-	if (barrelCount == 0)
-		return GWSTATUS_FINISHED_LEVEL; //FIXME - does level increase on its own
-
-    if(player->isAlive())
-        return GWSTATUS_CONTINUE_GAME;
-
-    decLives();
-    return GWSTATUS_PLAYER_DIED;
-}
-//---------------------------------------------------------------
-void StudentWorld::cleanUp()
-{
-    destroyIceField();  //De-initializes all ice objects
-    player = nullptr;
 }
 //---------------------------------------------------------------
 void StudentWorld::decBarrels() 
@@ -84,7 +84,7 @@ void StudentWorld::deleteIce(unsigned int xCord, unsigned int yCord)
             
             //Validating that coordinate is in bounds
             if(newX < VIEW_WIDTH && newY < VIEW_HEIGHT - IMAGE_OFFSET)
-                iceField[newX][newY] = nullptr;     //Frees unique pointer and deletes ice at that point
+                iceField[newX][newY].reset();     //Frees unique pointer and deletes ice at that point
         }
     }
 }
@@ -95,12 +95,12 @@ void StudentWorld::destroyIceField()
     {
         for(int j = 0; j < VIEW_HEIGHT - IMAGE_OFFSET; ++j)
         {
-            iceField[i][j] = nullptr;   //Frees unique pointer and deletes ice at that point
+            iceField[i][j].reset();   //Frees unique pointer and deletes ice at that point
         }
     }
 }
 //---------------------------------------------------------------
-double StudentWorld::calculateEuclidianDistance(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2) 
+double StudentWorld::calculateEuclidianDistance(double x1, double y1, double x2, double y2) 
 {
 	double xDiffSquared = pow(x2 - x1, 2);
 	double yDiffSquared = pow(y2 - y1, 2);
@@ -109,10 +109,10 @@ double StudentWorld::calculateEuclidianDistance(unsigned int x1, unsigned int y1
 //---------------------------------------------------------------
 bool StudentWorld::areaIsClear(unsigned int x, unsigned int y) 
 {
-	for (std::vector<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
+	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
 	{
 		//Checking if the area within 6 Euclidian units if clear of other objects
-		if (calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY()) < MIN_EUCLIDIAN_DIST)
+		if(calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY()) < MIN_EUCLIDIAN_DIST)
 			return false;	//Object to be built is too close to another object and cannot be built there
 	}
 	return true;	//No objects within 6 units were found and object can be built
@@ -120,19 +120,20 @@ bool StudentWorld::areaIsClear(unsigned int x, unsigned int y)
 //---------------------------------------------------------------
 void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general and include goldnuggets
 {
-	barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
-
-	int xCoord = rand() % MAX_COORDINATE + 1;	//Random x coordinate from 0-60 inclusive
-	int yCoord = rand() % MAX_COORDINATE + 1;
+	//barrelCount = 45; //Use this to test barrel distribution
+	this->barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
 	for (size_t i = 0; i < barrelCount; ++i)
 	{
-		while (!areaIsClear(xCoord, yCoord))
+		int xCoord = rand() % MAX_COORDINATE;	//Random x coordinate from 0-60 non inclusive. FIXME - check this bound
+		int yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //0-56 non-inclusive
+		while (!areaIsClear(xCoord, yCoord) || (xCoord > 26 && xCoord < 30 && yCoord > 0)) //FIXME - check these bounds
 		{
-			//Generate new coordinates because area was not clear
-			xCoord = rand() % MAX_COORDINATE + 1;
-			yCoord = rand() % MAX_COORDINATE + 1;
+			//Generate new coordinates because area was not clear or area overlapped vertical shaft
+			xCoord = rand() % MAX_COORDINATE;
+			yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
 		}
-		//gameObjects.push_back(std::unique_ptr<Actor>(new BarrelOfOil(xCoord, yCoord))); FIXME - causes exception
+
+		gameObjects.push_back(std::unique_ptr<Actor>(new BarrelOfOil(xCoord, yCoord, this)));
 	}
 }
 //---------------------------------------------------------------
@@ -143,11 +144,14 @@ double StudentWorld::getTunnelManDistance(unsigned int x, unsigned int y)
 //---------------------------------------------------------------
 void StudentWorld::destroyDeadObjects() 
 {
-	std::vector<unique_ptr<Actor>>::iterator it = gameObjects.begin();
-	while (it != gameObjects.end()) 
+	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end();)
 	{
-		if (!(*it)->isAlive())
+		if (!((*it)->isAlive()))	//Checking if it's dead, so we know if we need to delete it
+		{
+			(*it).reset();
 			gameObjects.erase(it);
+			it = gameObjects.begin();
+		}
 		else
 			++it;
 	}
@@ -156,6 +160,6 @@ void StudentWorld::destroyDeadObjects()
 void StudentWorld::askPlayerAndObjectsToDoSomething() 
 {
 	player->doSomething();
-	for (std::vector<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
+	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
 		(*it)->doSomething();
 }

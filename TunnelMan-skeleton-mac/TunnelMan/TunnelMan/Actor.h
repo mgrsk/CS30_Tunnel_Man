@@ -24,12 +24,12 @@ class Actor : public GraphObject
 private:
     bool stillAlive;
     std::unique_ptr<StudentWorld> world;    //Allows classes to see the gameworld    
+	void setWorld(StudentWorld * worldPtr);
     
 public:
-    Actor(int imageID, int startX, int startY, Direction startDirection, double size = 1.0, int depth = 0, bool shouldDisplay = true);
+    Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection = right, StudentWorld * ptr = nullptr, double size = 1.0, int depth = 0, bool shouldDisplay = true);
     ~Actor();
     std::unique_ptr<StudentWorld>& getWorld();
-    void setWorld(StudentWorld * worldPtr);
     bool isAlive();
     void setDead();
     virtual void doSomething() = 0;
@@ -57,7 +57,7 @@ private:
     size_t num_squirts;
     
 public:
-    TunnelMan();
+    TunnelMan(StudentWorld * world);
     ~TunnelMan();
     void doSomething();
     
@@ -75,7 +75,7 @@ public:
 class BarrelOfOil : public Actor
 {
 public:
-	BarrelOfOil(unsigned int startX, unsigned int startY);
+	BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world);
 
 	void doSomething();
 };

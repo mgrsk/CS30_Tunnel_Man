@@ -10,8 +10,10 @@
  *
  */
 
-Actor::Actor(int imageID, int startX, int startY, Direction startDirection, double size, int depth, bool shouldDisplay): GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true)
+Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, double size, int depth, bool shouldDisplay): 
+	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true)
 {
+	setWorld(ptr);
     setVisible(shouldDisplay);
 }
 //------------------------------------------
@@ -49,7 +51,7 @@ void Actor::setWorld(StudentWorld * worldPtr)
  *
  */
 
-Ice::Ice(unsigned int startX, unsigned int startY): Actor(TID_EARTH, startX, startY, right, ICE_SIZE, ICE_DEPTH)
+Ice::Ice(unsigned int startX, unsigned int startY): Actor(TID_EARTH, startX, startY, right, nullptr , ICE_SIZE, ICE_DEPTH)
 {
 }
 //------------------------------------------------------------------------------------
@@ -66,7 +68,7 @@ void Ice::doSomething() //Implemented only because it ineherents from pure virtu
  TUNNELMAN CLASS IMPLEMENTATION BELOW
  *
  */
-TunnelMan::TunnelMan(): Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right)
+TunnelMan::TunnelMan(StudentWorld * world): Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world)
 {
     num_squirts = 5;
     sonar_charges = 1;
@@ -172,7 +174,8 @@ BARREL OF OIL CLASS IMPLEMENTATION BELOW
 *
 */
 
-BarrelOfOil::BarrelOfOil(unsigned int startX, unsigned int startY) : Actor(TID_BARREL, startX, startY, right, 1, BARREL_DEPTH) 
+BarrelOfOil::BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world): 
+	Actor(TID_BARREL, startX, startY, right, world, 1, BARREL_DEPTH)//, false) Must  be false later on
 {
 }
 //------------------------------------------

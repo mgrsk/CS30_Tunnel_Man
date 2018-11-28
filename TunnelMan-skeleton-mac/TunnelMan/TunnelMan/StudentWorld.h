@@ -6,7 +6,7 @@
 #include "Actor.h"
 #include <string>
 #include <memory>
-#include <vector>
+#include <list>
 
 #define MIN_EUCLIDIAN_DIST	(6)	//Minimum distance objects must be spawned from each other
 
@@ -26,14 +26,14 @@ private:
     
     std::unique_ptr<Ice> iceField[VIEW_WIDTH][VIEW_HEIGHT - IMAGE_OFFSET];	//Holds the ice field
     std::unique_ptr<TunnelMan> player;	//The player object
-    std::vector<std::unique_ptr<Actor>> gameObjects;	//All other game objects, eg. sonar, enemies, etc
+    std::list<std::unique_ptr<Actor>> gameObjects;	//All other game objects, eg. sonar, enemies, etc
     
     void makeIceField();    //Generates the ice field in the game
     void destroyIceField(); //Destroys the ice field during cleanup
-	void askPlayerAndObjectsToDoSomething();	//Asks player and all objects in gameObjects vector to do something
-	void destroyDeadObjects();	//Removes dead objects from the gameObjects vector
+	void askPlayerAndObjectsToDoSomething();	//Asks player and all objects in gameObjects list to do something
+	void destroyDeadObjects();	//Removes dead objects from the gameObjects list
 	void distributeBarrelsAndGold();	//Randomly distributes these barrels/gold in the field during initialization
-	double calculateEuclidianDistance(unsigned int x1, unsigned int y1, unsigned int x2, unsigned int y2);
+	double calculateEuclidianDistance(double x1, double y1, double x2, double y2);
     
 public:
     StudentWorld(std::string assetDir);
