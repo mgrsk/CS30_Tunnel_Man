@@ -11,9 +11,8 @@
  */
 
 Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, double size, int depth, bool shouldDisplay): 
-	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true)
+	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true), world(ptr)
 {
-	setWorld(ptr);
     setVisible(shouldDisplay);
 }
 //------------------------------------------
@@ -37,10 +36,6 @@ StudentWorld * Actor::getWorld()
     return world;
 }
 //------------------------------------------
-void Actor::setWorld(StudentWorld * worldPtr)
-{
-    this->world = worldPtr;
-}
 
 
 
@@ -51,7 +46,8 @@ void Actor::setWorld(StudentWorld * worldPtr)
  *
  */
 
-Ice::Ice(unsigned int startX, unsigned int startY): Actor(TID_EARTH, startX, startY, right, nullptr , ICE_SIZE, ICE_DEPTH)
+Ice::Ice(unsigned int startX, unsigned int startY): 
+	Actor(TID_EARTH, startX, startY, right, nullptr , ICE_SIZE, ICE_DEPTH)
 {
 }
 //------------------------------------------------------------------------------------
@@ -68,11 +64,10 @@ void Ice::doSomething() //Implemented only because it ineherents from pure virtu
  TUNNELMAN CLASS IMPLEMENTATION BELOW
  *
  */
-TunnelMan::TunnelMan(StudentWorld * world): Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world)
+TunnelMan::TunnelMan(StudentWorld * world): 
+	Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world),
+	num_squirts(5), sonar_charges(1), gold_nuggets(0)
 {
-    num_squirts = 5;
-    sonar_charges = 1;
-    gold_nuggets = 0;
 }
 //------------------------------------------------------------------------------------
 TunnelMan::~TunnelMan() //Function is empty because no deallocation is needed at this time
@@ -124,6 +119,15 @@ void TunnelMan::doSomething()
                 setDirection(down);
                 break;
             }
+			case 'z':
+			{
+				if (sonar_charges > 0) 
+				{
+					getWorld()->playSound(SOUND_SONAR);
+					getWorld()->useSonar();
+					--sonar_charges;
+				}
+			}
         }
     }
     
@@ -133,7 +137,8 @@ void TunnelMan::doSomething()
 //----------------------------
 void TunnelMan::incGoldNugs()
 {
-    ++gold_nuggets;
+	if(gold_nuggets != 99)
+		++gold_nuggets;
 }
 //----------------------------
 void TunnelMan::decGoldNugs()
@@ -142,26 +147,38 @@ void TunnelMan::decGoldNugs()
         --gold_nuggets;
 }
 //----------------------------
+int TunnelMan::getGoldNugs() 
+{
+	return gold_nuggets;
+}
+//----------------------------
 void TunnelMan::incSonarCharges()
 {
-    ++sonar_charges;
+	if(sonar_charges != 99)
+		++sonar_charges;
 }
 //----------------------------
-void TunnelMan::decSonarCharges()
+int TunnelMan::getSonarCharges() 
 {
-    if(sonar_charges > 0)
-        --sonar_charges;
+	return sonar_charges;
 }
 //----------------------------
-void TunnelMan::incNumSquirts()
+void TunnelMan::increaseNumSquirts()
 {
-    ++num_squirts;
+	num_squirts += 5;
+	if (num_squirts > 99)
+		num_squirts = 99;
 }
 //----------------------------
 void TunnelMan::decNumSquirts()
 {
     if(num_squirts > 0)
         --num_squirts;
+}
+//----------------------------
+int TunnelMan::getNumSquirts() 
+{
+	return num_squirts;
 }
 //----------------------------
 
@@ -181,10 +198,8 @@ Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWor
 {
 }
 //-----------------------------------------------------------
-bool Goodie::checkIfTunnelManPickedUp()
+bool Goodie::checkIfTunnelManPickedUp(const double & distanceFromTunnelMan)
 {
-    double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
-    
     if(distanceFromTunnelMan <= 3.0)
     {
         setDead();
@@ -203,7 +218,7 @@ BARREL OF OIL CLASS IMPLEMENTATION BELOW
 */
 
 BarrelOfOil::BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world): 
-	Goodie(TID_BARREL, startX, startY, world, OIL_SCORE, SOUND_FOUND_OIL, false)
+	Goodie(TID_BARREL, startX, startY, world, SCORE_OIL, SOUND_FOUND_OIL, false)
 {
 }
 //------------------------------------------
@@ -219,7 +234,7 @@ void BarrelOfOil::doSomething()
 		setVisible(true);
 		return;
 	}
-	else if(checkIfTunnelManPickedUp())
+	else if(checkIfTunnelManPickedUp(distanceFromTunnelMan))
     {
 		getWorld()->decBarrels();
 	}
@@ -232,19 +247,18 @@ void BarrelOfOil::doSomething()
  *
  */
 
-GoldNugget::GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup): Goodie(TID_GOLD, startX, startY, world, GOLD_SCORE_PICKUP, SOUND_GOT_GOODIE, shouldDisplay), canBePickedUpByTunnelMan(canPickup)
+GoldNugget::GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup): 
+	Goodie(TID_GOLD, startX, startY, world, SCORE_PICKUP_GOLD, SOUND_GOT_GOODIE, shouldDisplay), canBePickedUpByTunnelMan(canPickup)
 {
 }
-
-
-
+//------------------------------------------
 void GoldNugget::doSomething()
 {
+	if (!isAlive())
+		return;
+
     if(canBePickedUpByTunnelMan)
-    {
-        if(!isAlive())
-            return;
-        
+    {   
         double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
         
         if (distanceFromTunnelMan <= MAX_DISTANCE_INVISIBLE && !isVisible())
@@ -252,9 +266,9 @@ void GoldNugget::doSomething()
             setVisible(true);
             return;
         }
-        else if(checkIfTunnelManPickedUp())
+        else if(checkIfTunnelManPickedUp(distanceFromTunnelMan))
         {
-            getWorld()->incTunnelManGold();
+            getWorld()->addToTunnelManInventory(ADD_GOLD_NUGGET);
         }
     }
     else //FIXME - implement protestor bribe code
@@ -262,7 +276,58 @@ void GoldNugget::doSomething()
         
     }
 }
-
-
-
+//------------------------------------------
 void GoldNugget::checkIfProtestorPickedUp(){}
+
+
+//------------------------------------------
+
+/*
+*
+* WATER POOL CLASS IMPLEMENTATION BELOW
+*
+*/
+
+WaterPool::WaterPool(unsigned int startX, unsigned int startY, StudentWorld * world): 
+	Goodie(TID_WATER_POOL, startX, startY, world, SCORE_WATER_POOL, SOUND_GOT_GOODIE, true)
+{	
+}
+//------------------------------------------
+void WaterPool::doSomething() //FIXME - implement temporary lifespan
+{
+	if (!isAlive())
+		return;
+
+	double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+
+	if (checkIfTunnelManPickedUp(distanceFromTunnelMan))
+	{
+		getWorld()->addToTunnelManInventory(ADD_SQUIRTS);
+	}
+}
+//------------------------------------------
+
+/*
+*
+* SONAR CLASS IMPLEMENTATION BELOW
+*
+*/
+
+Sonar::Sonar(unsigned int startX, unsigned int startY, StudentWorld * world):
+	Goodie(TID_SONAR, startX, startY, world, SCORE_SONAR, SOUND_GOT_GOODIE, true)
+{
+}
+
+void Sonar::doSomething() //FIXME - implement temporary lifespan
+{
+	if (!isAlive())
+		return;
+
+	double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+
+	if (checkIfTunnelManPickedUp(distanceFromTunnelMan)) 
+	{
+		getWorld()->addToTunnelManInventory(ADD_SONAR);
+	}
+}
+

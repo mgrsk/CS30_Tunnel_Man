@@ -3,6 +3,9 @@
 #include <cmath>
 #include <random>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
+
 using namespace std;
 
 GameWorld* createStudentWorld(string assetDir)
@@ -31,6 +34,7 @@ int StudentWorld::init()
 //---------------------------------------------------------------
 int StudentWorld::move()
 {
+	setDisplayText();
 	askPlayerAndObjectsToDoSomething();
 	destroyDeadObjects();
 	++tickCount;
@@ -49,6 +53,20 @@ void StudentWorld::cleanUp()
 {
 	destroyIceField();  //De-initializes all ice objects
 	player.reset();
+}
+//---------------------------------------------------------------
+void StudentWorld::setDisplayText() 
+{
+	stringstream gameText;
+	gameText << "Lvl: " << setw(2) << getLevel() << " "
+		<< "Lives: " << getLives() << " "
+		<< "Hlth: " << setw(2) << player->getHealth() << "% "
+		<< "Wtr: " << setw(2) << player->getNumSquirts() << " "
+		<< "Gld: " << setw(2) << player->getGoldNugs() << " "
+		<< "Oil Left: " << setw(2) << this->barrelCount << " "
+		<< "Sonar: " << setw(2) << player->getSonarCharges() << " "
+		<< "Scr: " << setw(6) << setfill('0') << getScore();
+	setGameStatText(gameText.str());
 }
 //---------------------------------------------------------------
 void StudentWorld::makeIceField()
@@ -122,8 +140,9 @@ bool StudentWorld::areaIsClear(unsigned int x, unsigned int y)
 //---------------------------------------------------------------
 void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general and include goldnuggets
 {
-	barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
+	//barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
     //int goldCount = std::max(5 - getLevel() / 2, 2); FIXME - implement this
+	barrelCount = 10;
     int goldCount = 10; //FIXME - for testing only
     
     int xCoord;     //Will store a randomly generated x-coordinate
@@ -186,7 +205,32 @@ void StudentWorld::askPlayerAndObjectsToDoSomething()
 		(*it)->doSomething();
 }
 //---------------------------------------------------------------
-void StudentWorld::incTunnelManGold()
+void StudentWorld::addToTunnelManInventory(int change)
 {
-    player->incGoldNugs();
+	switch (change) 
+	{
+		case ADD_GOLD_NUGGET:
+			player->incGoldNugs();
+			break;
+		case ADD_SONAR:
+			player->incSonarCharges();
+			break;
+		case ADD_SQUIRTS:
+			player->increaseNumSquirts();
+			break;
+	}
+}
+//---------------------------------------------------------------
+void StudentWorld::useSonar() 
+{
+	//iterating through the gameObjects list and making the ones close to tunnelman visible
+	int x = player->getX();
+	int y = player->getY();
+	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
+	{
+		double distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+
+		if (distance < SONAR_RANGE)
+			(*it)->setVisible(true);
+	}
 }

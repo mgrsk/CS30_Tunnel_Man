@@ -42,12 +42,16 @@ public:
     virtual int init();
     virtual int move();
     virtual void cleanUp();
+
+	void setDisplayText();
     
 	void decBarrels();
     void deleteIce(unsigned int xCord, unsigned int yCord);	//Deletes ice in area overlapping TunnelMan's image
 	bool areaIsClear(unsigned int x, unsigned int y);	//Determines if an object can be spawned by checking area surrounding it for objects
 	double getTunnelManDistance(unsigned int x, unsigned int y);	//Tells an object if TunnelMan is close enough to interact with it
-    void incTunnelManGold();
+    void addToTunnelManInventory(int change);	//Adds items to TunnelMan's Inventory (sonar, water, gold, etc)
+	void useSonar();
+
 
 
 };
