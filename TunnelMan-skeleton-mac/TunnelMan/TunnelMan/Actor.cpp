@@ -193,8 +193,9 @@ GOODIE CLASS IMPLEMENTATION BELOW
  */
 
 
-Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, bool shouldDisplay):
-    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay), scoreValue(score), soundToPlay(sound)
+Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay):
+    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
+	scoreValue(score), soundToPlay(sound), ticksPassed(0), maxTickLife(maxTicks)
 {
 }
 //-----------------------------------------------------------
@@ -210,6 +211,21 @@ bool Goodie::checkIfTunnelManPickedUp(const double & distanceFromTunnelMan)
     return false;
 }
 //------------------------------------------
+int Goodie::getMaxTickLife() 
+{
+	return maxTickLife;
+}
+//------------------------------------------
+int Goodie::getTicksPassed() 
+{
+	return ticksPassed;
+}
+//------------------------------------------
+void Goodie::incTicksPassed() 
+{
+	++ticksPassed;
+}
+//------------------------------------------
 
 /*
 *
@@ -218,7 +234,7 @@ BARREL OF OIL CLASS IMPLEMENTATION BELOW
 */
 
 BarrelOfOil::BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world): 
-	Goodie(TID_BARREL, startX, startY, world, SCORE_OIL, SOUND_FOUND_OIL, false)
+	Goodie(TID_BARREL, startX, startY, world, SCORE_OIL, SOUND_FOUND_OIL, 0, false)
 {
 }
 //------------------------------------------
@@ -247,8 +263,9 @@ void BarrelOfOil::doSomething()
  *
  */
 
-GoldNugget::GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup): 
-	Goodie(TID_GOLD, startX, startY, world, SCORE_PICKUP_GOLD, SOUND_GOT_GOODIE, shouldDisplay), canBePickedUpByTunnelMan(canPickup)
+GoldNugget::GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks, bool shouldDisplay, bool canPickup): 
+	Goodie(TID_GOLD, startX, startY, world, SCORE_PICKUP_GOLD, SOUND_GOT_GOODIE, maxTicks, shouldDisplay),
+	canBePickedUpByTunnelMan(canPickup)
 {
 }
 //------------------------------------------
@@ -288,8 +305,8 @@ void GoldNugget::checkIfProtestorPickedUp(){}
 *
 */
 
-WaterPool::WaterPool(unsigned int startX, unsigned int startY, StudentWorld * world): 
-	Goodie(TID_WATER_POOL, startX, startY, world, SCORE_WATER_POOL, SOUND_GOT_GOODIE, true)
+WaterPool::WaterPool(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks): 
+	Goodie(TID_WATER_POOL, startX, startY, world, SCORE_WATER_POOL, SOUND_GOT_GOODIE, maxTicks, true)
 {	
 }
 //------------------------------------------
@@ -313,8 +330,8 @@ void WaterPool::doSomething() //FIXME - implement temporary lifespan
 *
 */
 
-Sonar::Sonar(unsigned int startX, unsigned int startY, StudentWorld * world):
-	Goodie(TID_SONAR, startX, startY, world, SCORE_SONAR, SOUND_GOT_GOODIE, true)
+Sonar::Sonar(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks):
+	Goodie(TID_SONAR, startX, startY, world, SCORE_SONAR, SOUND_GOT_GOODIE, maxTicks, true)
 {
 }
 
@@ -323,11 +340,19 @@ void Sonar::doSomething() //FIXME - implement temporary lifespan
 	if (!isAlive())
 		return;
 
-	double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+	if (getTicksPassed() == getMaxTickLife()) 
+		setDead();
 
-	if (checkIfTunnelManPickedUp(distanceFromTunnelMan)) 
+	else
 	{
-		getWorld()->addToTunnelManInventory(ADD_SONAR);
+		double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+
+		if (checkIfTunnelManPickedUp(distanceFromTunnelMan))
+		{
+			getWorld()->addToTunnelManInventory(ADD_SONAR);
+		}
+
+		incTicksPassed();
 	}
 }
 

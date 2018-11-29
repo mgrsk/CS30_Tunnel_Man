@@ -33,6 +33,7 @@ private:
 	void askPlayerAndObjectsToDoSomething();	//Asks player and all objects in gameObjects list to do something
 	void destroyDeadObjects();	//Removes dead objects from the gameObjects list
 	void distributeBarrelsAndGold();	//Randomly distributes these barrels/gold in the field during initialization
+	void generateGoodies();
 	double calculateEuclidianDistance(double x1, double y1, double x2, double y2);
     
 public:

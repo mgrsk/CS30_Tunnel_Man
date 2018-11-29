@@ -142,8 +142,9 @@ void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general
 {
 	//barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
     //int goldCount = std::max(5 - getLevel() / 2, 2); FIXME - implement this
-	barrelCount = 10;
+	this->barrelCount = 10;
     int goldCount = 10; //FIXME - for testing only
+	int maxGoldTicks = 0; //FIXME - implement formula
     
     int xCoord;     //Will store a randomly generated x-coordinate
     int yCoord;     //Will store a randomly generated y-coordinate
@@ -174,8 +175,24 @@ void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general
             yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
         }
         //Creating gold that is invisible but can be picked up by the player
-        gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false, true)));
+        gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false, maxGoldTicks,true)));
     }
+}
+//---------------------------------------------------------------
+void StudentWorld::generateGoodies() 
+{
+	int tickLife = 100; //For testing
+	//int tickLife = max(100, 300 – 10 * getLevel()) 
+	int G = (getLevel() * 25) + 300;
+	if (rand() % G == 0) //1 in G chance new goodie is made
+	{
+		int P = rand() % 5; //1 in 5 chance sonar is made
+		if (P == 0)	//Generate a sonar
+		{
+		}
+	}
+
+	
 }
 //---------------------------------------------------------------
 double StudentWorld::getTunnelManDistance(unsigned int x, unsigned int y) 

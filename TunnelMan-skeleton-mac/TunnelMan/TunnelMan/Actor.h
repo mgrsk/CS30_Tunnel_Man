@@ -100,12 +100,16 @@ class Goodie : public Actor
 private:
     int scoreValue;
     int soundToPlay;
-    bool atRest;    //FIXME - implement this
-    int ticksSinceLastAction; //FIXME - implement this
+	int ticksPassed;
+	int maxTickLife;
 public:
-    Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, bool shouldDisplay);
+    Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay);
     virtual void doSomething() = 0;
     bool checkIfTunnelManPickedUp(const double & distanceFromTunnelMan);
+
+	int getMaxTickLife();
+	int getTicksPassed();
+	void incTicksPassed();
 };
 
 
@@ -126,7 +130,7 @@ class GoldNugget : public Goodie
 private:
     bool canBePickedUpByTunnelMan;
 public:
-    GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup);
+    GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks, bool shouldDisplay, bool canPickup);
     void doSomething();
     void checkIfProtestorPickedUp();
 };
@@ -136,7 +140,7 @@ public:
 class WaterPool : public Goodie 
 {
 public:
-	WaterPool(unsigned int startX, unsigned int startY, StudentWorld * world);
+	WaterPool(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks);
 	void doSomething();
 };
 
@@ -145,7 +149,7 @@ public:
 class Sonar : public Goodie 
 {
 public:
-	Sonar(unsigned int startX, unsigned int startY, StudentWorld * world);
+	Sonar(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks);
 	void doSomething();
 };
 
