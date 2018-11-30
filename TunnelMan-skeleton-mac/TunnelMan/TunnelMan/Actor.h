@@ -13,6 +13,7 @@
 #define ICE_SIZE                    (0.25)
 
 #define GOLD_LIFETIME				(100)
+#define MAX_TICKS_BOULDER_WAITING	(30)
 
 #define ICE_DEPTH                   (3)
 #define GOODIE_DEPTH				(2)
@@ -45,7 +46,7 @@ private:
     
 public:
     Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, 
-		bool annoyable, double size = 1.0, int depth = 0, bool shouldDisplay = true);
+		bool annoyable = false, double size = 1.0, int depth = 0, bool shouldDisplay = true);
     ~Actor();
 
     StudentWorld * getWorld();
@@ -54,7 +55,7 @@ public:
     void setDead();
 
     virtual void doSomething() = 0;
-	virtual void annoy(int damage) = 0;
+	virtual void annoy(size_t damage) = 0;
 	virtual void bribe() = 0;
 };
 
@@ -65,7 +66,7 @@ class Ice : public Actor
 public:
     Ice(unsigned int startX, unsigned int startY);
     void doSomething(); 
-	void annoy(int damage);
+	void annoy(size_t damage);
 	void bribe();
 };
 
@@ -83,7 +84,7 @@ public:
     TunnelMan(StudentWorld * world);
     ~TunnelMan();
     void doSomething();
-	void annoy(int damage);
+	void annoy(size_t damage);
 	void bribe();
     
     void incGoldNugs();
@@ -104,6 +105,25 @@ public:
 
 //------------------------------------------
 
+/*
+*
+* BOULDER CLASS BELOW
+*
+*/
+
+class Boulder : public Actor 
+{
+private:
+	bool atRest;
+	size_t ticksWaiting;
+public:
+	Boulder(unsigned int x, unsigned int y, StudentWorld * world);
+	void doSomething();
+	void fall();
+	void annoy(size_t damage);
+	void bribe();
+};
+
 
 /*
 *
@@ -117,7 +137,7 @@ private:
 
 public:
 	void doSomething();
-	void annoy(int damage);
+	void annoy(size_t damage);
 	void bribe();
 	void leaveOilField();
 };
@@ -140,7 +160,7 @@ private:
 public:
     Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay);
     virtual void doSomething() = 0;
-	void annoy(int damage);
+	void annoy(size_t damage);
 	void bribe();
 
     bool checkIfTunnelManPickedUp(const double & distanceFromTunnelMan);

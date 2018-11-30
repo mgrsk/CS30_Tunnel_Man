@@ -29,6 +29,7 @@ int StudentWorld::init()
 	makeIceField();
 	player = std::unique_ptr<TunnelMan>(new TunnelMan(this));
 	distributeBarrelsAndGold();
+	distributeBoulders();
 	return GWSTATUS_CONTINUE_GAME;
 }
 //---------------------------------------------------------------
@@ -76,7 +77,7 @@ void StudentWorld::makeIceField()
     {
         for(int j = 0; j < VIEW_HEIGHT - IMAGE_OFFSET; ++j)
         {
-            if(!(i >= 30 && i <= 33 && j >= 4)) //Making sure to skip the vertical shaft in the middle
+            if(!(i >= SHAFT_LEFT_COORD && i <= SHAFT_RIGHT_COORD && j >= SHAFT_BOTTOM_COORD)) //Making sure to skip the vertical shaft in the middle
             {
                 iceField[i][j] = std::unique_ptr<Ice>(new Ice(i,j));
             }
@@ -141,9 +142,9 @@ bool StudentWorld::areaIsClearOfObjects(unsigned int x, unsigned int y)
 //---------------------------------------------------------------
 bool StudentWorld::areaIsClearOfIce(unsigned int x, unsigned int y) 
 {
-	for (int i = x; i < x + 4; ++i)
+	for (size_t i = x; i < x + 4; ++i)
 	{
-		for (int j = y; j < y + 4; ++j)
+		for (size_t j = y; j < y + 4; ++j)
 		{
 			if (iceField[i][j] != nullptr) //Checking if there is ice at that point
 				return false;
@@ -152,13 +153,12 @@ bool StudentWorld::areaIsClearOfIce(unsigned int x, unsigned int y)
 	return true;
 }
 //---------------------------------------------------------------
-void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general and include goldnuggets
+void StudentWorld::distributeBarrelsAndGold()
 {
 	//barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
     //int goldCount = std::max(5 - getLevel() / 2, 2); FIXME - implement this
-	this->barrelCount = 10;
-    int goldCount = 10; //FIXME - for testing only
-	int maxGoldTicks = 0; //FIXME - implement formula
+	this->barrelCount = 20;
+    int goldCount = 20; //FIXME - for testing only
     
     int xCoord;     //Will store a randomly generated x-coordinate
     int yCoord;     //Will store a randomly generated y-coordinate
@@ -167,8 +167,10 @@ void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general
         
 		xCoord = rand() % (MAX_COORDINATE + 1);	//Random x coordinate from 0-60 inclusive.
 		yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //y coordinate 0-56 non-inclusive
-            
-		while (!areaIsClearOfObjects(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
+           
+		//FIXME - check these bounds...
+		while (!areaIsClearOfObjects(xCoord, yCoord) || ((xCoord > SHAFT_LEFT_COORD - IMAGE_OFFSET) && 
+			(xCoord < SHAFT_RIGHT_COORD) && (yCoord > 0)))
 		{
 			//Generate new coordinates because area was not clear or area overlapped vertical shaft
 			xCoord = rand() % (MAX_COORDINATE + 1);
@@ -183,6 +185,7 @@ void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general
         xCoord = rand() % (MAX_COORDINATE + 1);
         yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
         
+		//FIXME - check these bounds
         while (!areaIsClearOfObjects(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
         {
             xCoord = rand() % (MAX_COORDINATE + 1);
@@ -192,6 +195,32 @@ void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general
         gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false,true)));
     }
 }
+//---------------------------------------------------------------
+void StudentWorld::distributeBoulders() 
+{
+	//int B = min(current_level_number / 2 + 2, 9)
+	int B = 3;
+	int xCoord;     //Will store a randomly generated x-coordinate
+	int yCoord;     //Will store a randomly generated y-coordinate
+	for (size_t i = 0; i < B; ++i)
+	{
+
+		xCoord = rand() % (MAX_COORDINATE + 1);	//Random x coordinate from 0-60 inclusive. FIXME COORDINATES
+		yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //y coordinate 0-56 non-inclusive
+
+		//FIXME - check these bounds...
+		while (!areaIsClearOfObjects(xCoord, yCoord) || ((xCoord > SHAFT_LEFT_COORD - IMAGE_OFFSET) &&
+			(xCoord < SHAFT_RIGHT_COORD) && (yCoord > 0)))
+		{
+			//Generate new coordinates because area was not clear or area overlapped vertical shaft
+			xCoord = rand() % (MAX_COORDINATE + 1);
+			yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
+		}
+		//Creating a new barrel of oil at that point
+		gameObjects.push_back(std::unique_ptr<Actor>(new Boulder(xCoord, yCoord, this)));
+		deleteIceAroundObject(xCoord, yCoord);
+	}
+} 
 //---------------------------------------------------------------
 void StudentWorld::generateGoodies() 
 {
@@ -281,14 +310,38 @@ bool StudentWorld::checkForBribes(unsigned int x, unsigned int y)
 	return false;
 }
 //---------------------------------------------------------------
+bool StudentWorld::checkForIceBelowBoulder(unsigned int x, unsigned int y) 
+{
+	for (int i = x; i < x + IMAGE_OFFSET; ++i) 
+	{
+		//Checking if there is ice immediately below the boulder
+		if (iceField[i][y - 1] != nullptr)
+			return true;
+	}
+	return false;
+}
+//---------------------------------------------------------------
+void StudentWorld::checkForBoulderHits(unsigned int x, unsigned int y) 
+{
+	double distance;
+	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
+	{
+		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+
+		if (distance <= 3.0)
+			(*it)->annoy(10);
+	}
+}
+//---------------------------------------------------------------
 void StudentWorld::useSonar() 
 {
 	//iterating through the gameObjects list and making the ones close to tunnelman visible
 	int x = player->getX();
 	int y = player->getY();
+	double distance;
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
 	{
-		double distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
 
 		if (distance < SONAR_RANGE)
 			(*it)->setVisible(true);

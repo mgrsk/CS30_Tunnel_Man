@@ -1,6 +1,11 @@
 #ifndef STUDENTWORLD_H_
 #define STUDENTWORLD_H_
 
+//Coordinates for the shaft in the middle
+#define SHAFT_LEFT_COORD	(30)
+#define SHAFT_RIGHT_COORD	(33)
+#define SHAFT_BOTTOM_COORD	(4)
+
 #include "GameWorld.h"
 #include "GameConstants.h"
 #include "Actor.h"
@@ -17,6 +22,9 @@ class Ice;
 class BarrelOfOil;
 class Sonar;
 class WaterPool;
+class Boulder;
+class Protester;
+class HardcoreProtestor;
 
 
 
@@ -35,6 +43,7 @@ private:
 	void askPlayerAndObjectsToDoSomething();	//Asks player and all objects in gameObjects list to do something
 	void destroyDeadObjects();	//Removes dead objects from the gameObjects list
 	void distributeBarrelsAndGold();	//Randomly distributes these barrels/gold in the field during initialization
+	void distributeBoulders(); //Boulders must be distributed between x=0,y=20 and x=60,y=56, inclusive (so they have room to fall).  FIXME - implement
 	void generateGoodies();
 	double calculateEuclidianDistance(double x1, double y1, double x2, double y2);
     
@@ -55,6 +64,10 @@ public:
 	
 	double getTunnelManDistance(unsigned int x, unsigned int y);	//Tells an object if TunnelMan is close enough to interact with it
 	bool checkForBribes(unsigned int x, unsigned int y);
+	bool checkForIceBelowBoulder(unsigned int x, unsigned int y);
+	void checkForBoulderHits(unsigned int x, unsigned int y);
+
+
 
 	void addToTunnelManInventory(int change);	//Adds items to TunnelMan's Inventory (sonar, water, gold, etc)
 	void useSonar();

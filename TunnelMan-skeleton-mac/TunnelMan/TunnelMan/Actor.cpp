@@ -60,7 +60,7 @@ void Ice::doSomething() //Implemented only because it ineherents from pure virtu
     return;
 }
 //------------------------------------------------------------------------------------
-void Ice::annoy(int damage) {}
+void Ice::annoy(size_t damage) {}
 //-----------------------------------
 void Ice::bribe() {}
 //------------------------------------------
@@ -151,9 +151,15 @@ void TunnelMan::doSomething()
     getWorld()->deleteIceAroundObject(getX(), getY());
 }
 //----------------------------
-void TunnelMan::annoy(int damage) //FIXME - implement
+void TunnelMan::annoy(size_t damage) 
 {
-
+	if (damage >= health)
+	{
+		health = 0;
+		setDead();
+	}
+	else
+		health -= damage;
 }
 //----------------------------
 void TunnelMan::bribe() {}
@@ -211,6 +217,56 @@ size_t TunnelMan::getHealth()
 
 /*
 *
+* BOULDER CLASS IMPLEMENTATION BELOW
+*
+*/
+
+Boulder::Boulder(unsigned int x, unsigned int y, StudentWorld * world):
+	Actor(TID_BOULDER, x, y, down, world, false, STANDARD_IMAGE_SIZE, 1), atRest(true), ticksWaiting(0)
+{
+}
+//------------------------------------------
+void Boulder::doSomething() //FIXME - implement
+{
+	if (!isAlive())
+		return; 
+
+	if(atRest) 
+	{
+		if (!getWorld()->checkForIceBelowBoulder(getX(), getY())) 
+			atRest = false;
+	}
+	else 
+	{
+		if (ticksWaiting == MAX_TICKS_BOULDER_WAITING)
+		{
+			getWorld()->playSound(SOUND_FALLING_ROCK);
+		}
+		if (ticksWaiting >= MAX_TICKS_BOULDER_WAITING)
+		{
+			fall();
+		}
+		++ticksWaiting;
+	}
+	
+}
+//------------------------------------------
+void Boulder::fall() //FIXME - player won't die and boulder won't stop
+{
+	getWorld()->checkForBoulderHits(getX(), getY());
+	if (getY() > 0)
+		moveTo(getX(), getY() - 1);
+	else
+		setDead();
+}
+//------------------------------------------
+void Boulder::annoy(size_t damage) {}
+//------------------------------------------
+void Boulder::bribe() {}
+//------------------------------------------
+
+/*
+*
 PROTESTOR CLASS IMPLEMENTATION BELOW
 *
 */
@@ -219,7 +275,7 @@ PROTESTOR CLASS IMPLEMENTATION BELOW
 void Protester::doSomething() //FIXME - implement
 {}
 //------------------------------------------
-void Protester::annoy(int damage) //FIXME - implement
+void Protester::annoy(size_t damage) //FIXME - implement
 {}
 //------------------------------------------
 void Protester::bribe() //FIXME - implement
@@ -242,7 +298,7 @@ Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWor
 {
 }
 //-----------------------------------------------------------
-void Goodie::annoy(int damage) {}
+void Goodie::annoy(size_t damage) {}
 //------------------------------------------
 void Goodie::bribe() {}
 //------------------------------------------
@@ -336,8 +392,7 @@ void GoldNugget::doSomething()
             getWorld()->addToTunnelManInventory(ADD_GOLD_NUGGET);
         }
     }
-	//This was gold that TunnelMan dropped 
-    else //FIXME - implement protestor bribe code
+	else	//This was gold that TunnelMan dropped 
     {
 		if (getTicksPassed() == getMaxTickLife())
 		{
@@ -346,7 +401,11 @@ void GoldNugget::doSomething()
 		else 
 		{
 			if (getWorld()->checkForBribes(getX(), getY()))
+			{
 				setDead();
+				getWorld()->playSound(SOUND_PROTESTER_FOUND_GOLD);
+				getWorld()->increaseScore(SCORE_BRIBE_GOLD);
+			}
 
 			incTicksPassed();
 		}
@@ -369,7 +428,7 @@ WaterPool::WaterPool(unsigned int startX, unsigned int startY, StudentWorld * wo
 {	
 }
 //------------------------------------------
-void WaterPool::doSomething() //FIXME - implement temporary lifespan
+void WaterPool::doSomething() 
 {
 	if (!isAlive())
 		return;
@@ -401,7 +460,7 @@ Sonar::Sonar(unsigned int startX, unsigned int startY, StudentWorld * world, int
 {
 }
 
-void Sonar::doSomething() //FIXME - implement temporary lifespan
+void Sonar::doSomething()
 {
 	if (!isAlive())
 		return;
