@@ -10,8 +10,7 @@
  *
  */
 
-Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr,
-	bool annoyable, double size, int depth, bool shouldDisplay): 
+Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, bool annoyable, double size, int depth, bool shouldDisplay):
 	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true), world(ptr), canBeAnnoyed(annoyable)
 {
     setVisible(shouldDisplay);
@@ -42,8 +41,17 @@ bool Actor::getCanBeAnnoyed()
 	return canBeAnnoyed;
 }
 //------------------------------------------
-
+void Actor::bribe() {}  //To be overrided by necessary classes
 //------------------------------------------
+void Actor::annoy(size_t damage) {}  //To be overrided by necessary classes
+//------------------------------------------
+bool Actor::isBoulder()
+{
+    return false;
+}
+//------------------------------------------
+
+
 /*
  *
  ICE CLASS IMPLEMENTATION BELOW
@@ -60,10 +68,6 @@ void Ice::doSomething() //Implemented only because it ineherents from pure virtu
     return;
 }
 //------------------------------------------------------------------------------------
-void Ice::annoy(size_t damage) {}
-//-----------------------------------
-void Ice::bribe() {}
-//------------------------------------------
 
 /*
  *
@@ -93,7 +97,8 @@ void TunnelMan::doSomething()
             {
                 if(getX() > 0 && getDirection() == left)
                 {
-                    moveTo(getX()-1, getY());
+                    if(getWorld()->noBouldersBlocking(getX() - 1, getY()))
+                        moveTo(getX() - 1, getY());
                 }
                 setDirection(left);
                 break;
@@ -102,7 +107,8 @@ void TunnelMan::doSomething()
             {
                 if(getX() < MAX_COORDINATE && getDirection() == right)
                 {
-                    moveTo(getX()+1, getY());
+                    if(getWorld()->noBouldersBlocking(getX() + 1, getY()))
+                        moveTo(getX() + 1, getY());
                 }
                 setDirection(right);
                 break;
@@ -111,7 +117,8 @@ void TunnelMan::doSomething()
             {
                 if(getY() < MAX_COORDINATE && getDirection() == up)
                 {
-                    moveTo(getX(), getY() + 1);
+                    if(getWorld()->noBouldersBlocking(getX(), getY() + 1))
+                        moveTo(getX(), getY() + 1);
                 }
                 setDirection(up);
                 break;
@@ -120,7 +127,8 @@ void TunnelMan::doSomething()
             {
                 if(getY() > 0 && getDirection() == down)
                 {
-                    moveTo(getX(), getY() - 1);
+                    if(getWorld()->noBouldersBlocking(getX(), getY() - 1))
+                        moveTo(getX(), getY() - 1);
                 }
                 setDirection(down);
                 break;
@@ -151,7 +159,7 @@ void TunnelMan::doSomething()
     getWorld()->deleteIceAroundObject(getX(), getY());
 }
 //----------------------------
-void TunnelMan::annoy(size_t damage) 
+void TunnelMan::annoy(size_t damage)
 {
 	if (damage >= health)
 	{
@@ -161,8 +169,6 @@ void TunnelMan::annoy(size_t damage)
 	else
 		health -= damage;
 }
-//----------------------------
-void TunnelMan::bribe() {}
 //----------------------------
 void TunnelMan::incGoldNugs()
 {
@@ -254,15 +260,16 @@ void Boulder::doSomething() //FIXME - implement
 void Boulder::fall() //FIXME - player won't die and boulder won't stop
 {
 	getWorld()->checkForBoulderHits(getX(), getY());
-	if (getY() > 0)
+	if (getY() > 0 && !getWorld()->checkForIceBelowBoulder(getX(), getY()))
 		moveTo(getX(), getY() - 1);
 	else
 		setDead();
 }
 //------------------------------------------
-void Boulder::annoy(size_t damage) {}
-//------------------------------------------
-void Boulder::bribe() {}
+bool Boulder::isBoulder()
+{
+    return true;
+}
 //------------------------------------------
 
 /*
@@ -394,27 +401,28 @@ void GoldNugget::doSomething()
     }
 	else	//This was gold that TunnelMan dropped 
     {
-		if (getTicksPassed() == getMaxTickLife())
-		{
-			setDead();
-		}
-		else 
-		{
-			if (getWorld()->checkForBribes(getX(), getY()))
-			{
-				setDead();
-				getWorld()->playSound(SOUND_PROTESTER_FOUND_GOLD);
-				getWorld()->increaseScore(SCORE_BRIBE_GOLD);
-			}
-
-			incTicksPassed();
-		}
+        checkIfProtestorPickedUp();
     }
 }
 //------------------------------------------
-void GoldNugget::checkIfProtestorPickedUp(){}
-
-
+void GoldNugget::checkIfProtestorPickedUp()
+{
+    if (getTicksPassed() == getMaxTickLife())
+    {
+        setDead();
+    }
+    else
+    {
+        if (getWorld()->checkForBribes(getX(), getY()))
+        {
+            setDead();
+            getWorld()->playSound(SOUND_PROTESTER_FOUND_GOLD);
+            getWorld()->increaseScore(SCORE_BRIBE_GOLD);
+        }
+        
+        incTicksPassed();
+    }
+}
 //------------------------------------------
 
 /*

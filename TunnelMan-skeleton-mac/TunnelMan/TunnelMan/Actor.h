@@ -14,6 +14,7 @@
 
 #define GOLD_LIFETIME				(100)
 #define MAX_TICKS_BOULDER_WAITING	(30)
+#define BOULDER_DAMAGE              (10)
 
 #define ICE_DEPTH                   (3)
 #define GOODIE_DEPTH				(2)
@@ -55,8 +56,9 @@ public:
     void setDead();
 
     virtual void doSomething() = 0;
-	virtual void annoy(size_t damage) = 0;
-	virtual void bribe() = 0;
+	virtual void annoy(size_t damage);
+	virtual void bribe();
+    virtual bool isBoulder();
 };
 
 //------------------------------------------
@@ -65,9 +67,7 @@ class Ice : public Actor
 {
 public:
     Ice(unsigned int startX, unsigned int startY);
-    void doSomething(); 
-	void annoy(size_t damage);
-	void bribe();
+    void doSomething();
 };
 
 //------------------------------------------
@@ -84,8 +84,7 @@ public:
     TunnelMan(StudentWorld * world);
     ~TunnelMan();
     void doSomething();
-	void annoy(size_t damage);
-	void bribe();
+	void annoy(size_t damage) override;
     
     void incGoldNugs();
     void decGoldNugs();
@@ -120,8 +119,8 @@ public:
 	Boulder(unsigned int x, unsigned int y, StudentWorld * world);
 	void doSomething();
 	void fall();
-	void annoy(size_t damage);
-	void bribe();
+    bool isBoulder();
+    
 };
 
 

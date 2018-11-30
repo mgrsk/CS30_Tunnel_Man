@@ -25,29 +25,30 @@ StudentWorld::~StudentWorld()
 //---------------------------------------------------------------
 int StudentWorld::init()
 {
-	tickCount = 0;
 	makeIceField();
 	player = std::unique_ptr<TunnelMan>(new TunnelMan(this));
-	distributeBarrelsAndGold();
-	distributeBoulders();
+	distributeBarrelsGoldAndBoulders();
+	//distributeBoulders();
 	return GWSTATUS_CONTINUE_GAME;
 }
 //---------------------------------------------------------------
 int StudentWorld::move()
 {
-	setDisplayText();
-	askPlayerAndObjectsToDoSomething();
-	destroyDeadObjects();
-	generateGoodies();
-	++tickCount;
+    while(player->isAlive())
+    {
+        setDisplayText();
+        generateGoodies();
+        askPlayerAndObjectsToDoSomething();
+        destroyDeadObjects();
 
-	if (barrelCount == 0)
-		return GWSTATUS_FINISHED_LEVEL; 
-
-	if (player->isAlive())
-		return GWSTATUS_CONTINUE_GAME;
-
+        if (barrelCount == 0)
+            return GWSTATUS_FINISHED_LEVEL;
+        
+        return GWSTATUS_CONTINUE_GAME;
+    }
+    
 	decLives();
+    playSound(SOUND_PLAYER_GIVE_UP);
 	return GWSTATUS_PLAYER_DIED;
 }
 //---------------------------------------------------------------
@@ -55,6 +56,7 @@ void StudentWorld::cleanUp()
 {
 	destroyIceField();  //De-initializes all ice objects
 	player.reset();
+    gameObjects.clear();
 }
 //---------------------------------------------------------------
 void StudentWorld::setDisplayText() 
@@ -153,74 +155,84 @@ bool StudentWorld::areaIsClearOfIce(unsigned int x, unsigned int y)
 	return true;
 }
 //---------------------------------------------------------------
-void StudentWorld::distributeBarrelsAndGold()
+bool StudentWorld::noBouldersBlocking(unsigned int x, unsigned int y)
+{
+    double distance;
+    for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
+    {
+        if((*it)->isBoulder())
+        {
+            distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+            if(distance <= 3.0)
+                return false;   //Player would be touching boulder if it moved here
+        }
+    }
+    return true;    //Area is clear of boulders
+}
+//---------------------------------------------------------------
+void StudentWorld::generateObjects(int numObjects, int typeOfObject)
+{
+    int xCoord;
+    int yCoord;
+    
+    for(size_t i = 0; i < numObjects; ++i)
+    {
+        xCoord = rand() % (MAX_COORDINATE + 1);    //Random x coordinate from 0-60 inclusive.
+        
+        if(typeOfObject == GENERATE_BOULDER)
+            yCoord = rand() % (37) + MIN_BOULDER_HEIGHT; //y coordinate 20-56 inclusive
+        else
+            yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
+        
+        
+        while (!areaIsClearOfObjects(xCoord, yCoord) || ((xCoord > SHAFT_LEFT_COORD - IMAGE_OFFSET) &&
+                (xCoord <= SHAFT_RIGHT_COORD) && (yCoord > 0)))
+        {
+            //Generate new coordinates because area was not clear or area overlapped vertical shaft
+            xCoord = rand() % (MAX_COORDINATE + 1);
+            
+            if(typeOfObject == GENERATE_BOULDER)
+                yCoord = rand() % (37) + MIN_BOULDER_HEIGHT;
+            else
+                yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
+        }
+        
+        switch(typeOfObject)
+        {
+            case GENERATE_OIL:
+            {
+                gameObjects.push_back(std::unique_ptr<Actor>(new BarrelOfOil(xCoord, yCoord, this)));
+                break;
+            }
+            case GENERATE_GOLD:
+            {
+                gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false,true)));
+                break;
+            }
+            case GENERATE_BOULDER:
+            {
+                gameObjects.push_back(std::unique_ptr<Actor>(new Boulder(xCoord, yCoord, this)));
+                deleteIceAroundObject(xCoord, yCoord);
+                break;
+            }
+        }
+    }
+}
+
+void StudentWorld::distributeBarrelsGoldAndBoulders()
 {
 	//barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
     //int goldCount = std::max(5 - getLevel() / 2, 2); FIXME - implement this
-	this->barrelCount = 20;
-    int goldCount = 20; //FIXME - for testing only
+    //int Boulders = min(current_level_number / 2 + 2, 9)
+	this->barrelCount = 35;
+    int goldCount = 3; //FIXME - for testing only
+    int boulderCount = 9;
     
-    int xCoord;     //Will store a randomly generated x-coordinate
-    int yCoord;     //Will store a randomly generated y-coordinate
-    for (size_t i = 0; i < barrelCount; ++i)
-	{
-        
-		xCoord = rand() % (MAX_COORDINATE + 1);	//Random x coordinate from 0-60 inclusive.
-		yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //y coordinate 0-56 non-inclusive
-           
-		//FIXME - check these bounds...
-		while (!areaIsClearOfObjects(xCoord, yCoord) || ((xCoord > SHAFT_LEFT_COORD - IMAGE_OFFSET) && 
-			(xCoord < SHAFT_RIGHT_COORD) && (yCoord > 0)))
-		{
-			//Generate new coordinates because area was not clear or area overlapped vertical shaft
-			xCoord = rand() % (MAX_COORDINATE + 1);
-			yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
-		}
-		//Creating a new barrel of oil at that point
-		gameObjects.push_back(std::unique_ptr<Actor>(new BarrelOfOil(xCoord, yCoord, this)));
-	}
+    generateObjects(barrelCount, GENERATE_OIL);
+    generateObjects(goldCount, GENERATE_GOLD);
+    generateObjects(boulderCount, GENERATE_BOULDER);
     
-    for(int i = 0; i < goldCount; ++i)
-    {
-        xCoord = rand() % (MAX_COORDINATE + 1);
-        yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
-        
-		//FIXME - check these bounds
-        while (!areaIsClearOfObjects(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
-        {
-            xCoord = rand() % (MAX_COORDINATE + 1);
-            yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
-        }
-        //Creating gold that is invisible but can be picked up by the player
-        gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false,true)));
-    }
 }
-//---------------------------------------------------------------
-void StudentWorld::distributeBoulders() 
-{
-	//int B = min(current_level_number / 2 + 2, 9)
-	int B = 3;
-	int xCoord;     //Will store a randomly generated x-coordinate
-	int yCoord;     //Will store a randomly generated y-coordinate
-	for (size_t i = 0; i < B; ++i)
-	{
-
-		xCoord = rand() % (MAX_COORDINATE + 1);	//Random x coordinate from 0-60 inclusive. FIXME COORDINATES
-		yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //y coordinate 0-56 non-inclusive
-
-		//FIXME - check these bounds...
-		while (!areaIsClearOfObjects(xCoord, yCoord) || ((xCoord > SHAFT_LEFT_COORD - IMAGE_OFFSET) &&
-			(xCoord < SHAFT_RIGHT_COORD) && (yCoord > 0)))
-		{
-			//Generate new coordinates because area was not clear or area overlapped vertical shaft
-			xCoord = rand() % (MAX_COORDINATE + 1);
-			yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
-		}
-		//Creating a new barrel of oil at that point
-		gameObjects.push_back(std::unique_ptr<Actor>(new Boulder(xCoord, yCoord, this)));
-		deleteIceAroundObject(xCoord, yCoord);
-	}
-} 
 //---------------------------------------------------------------
 void StudentWorld::generateGoodies() 
 {
@@ -329,8 +341,10 @@ void StudentWorld::checkForBoulderHits(unsigned int x, unsigned int y)
 		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
 
 		if (distance <= 3.0)
-			(*it)->annoy(10);
+			(*it)->annoy(BOULDER_DAMAGE);
 	}
+    if(getTunnelManDistance(x, y) <= 3.0)
+        player->annoy(BOULDER_DAMAGE);
 }
 //---------------------------------------------------------------
 void StudentWorld::useSonar() 
