@@ -15,6 +15,8 @@ class Actor;
 class TunnelMan;
 class Ice;
 class BarrelOfOil;
+class Sonar;
+class WaterPool;
 
 
 
@@ -47,11 +49,16 @@ public:
 	void setDisplayText();
     
 	void decBarrels();
-    void deleteIce(unsigned int xCord, unsigned int yCord);	//Deletes ice in area overlapping TunnelMan's image
-	bool areaIsClear(unsigned int x, unsigned int y);	//Determines if an object can be spawned by checking area surrounding it for objects
+    void deleteIceAroundObject(unsigned int xCord, unsigned int yCord);	//Deletes ice in area overlapping an object's image
+	bool areaIsClearOfObjects(unsigned int x, unsigned int y);	//Determines if an object can be spawned by checking area surrounding it for objects in the gameObjects list
+	bool areaIsClearOfIce(unsigned int x, unsigned int y);
+	
 	double getTunnelManDistance(unsigned int x, unsigned int y);	//Tells an object if TunnelMan is close enough to interact with it
-    void addToTunnelManInventory(int change);	//Adds items to TunnelMan's Inventory (sonar, water, gold, etc)
+	bool checkForBribes(unsigned int x, unsigned int y);
+
+	void addToTunnelManInventory(int change);	//Adds items to TunnelMan's Inventory (sonar, water, gold, etc)
 	void useSonar();
+	void dropGoldNug(unsigned int x, unsigned int y);
 
 
 

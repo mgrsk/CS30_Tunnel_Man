@@ -10,8 +10,9 @@
  *
  */
 
-Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, double size, int depth, bool shouldDisplay): 
-	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true), world(ptr)
+Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr,
+	bool annoyable, double size, int depth, bool shouldDisplay): 
+	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true), world(ptr), canBeAnnoyed(annoyable)
 {
     setVisible(shouldDisplay);
 }
@@ -36,8 +37,11 @@ StudentWorld * Actor::getWorld()
     return world;
 }
 //------------------------------------------
-
-
+bool Actor::getCanBeAnnoyed() 
+{
+	return canBeAnnoyed;
+}
+//------------------------------------------
 
 //------------------------------------------
 /*
@@ -47,7 +51,7 @@ StudentWorld * Actor::getWorld()
  */
 
 Ice::Ice(unsigned int startX, unsigned int startY): 
-	Actor(TID_EARTH, startX, startY, right, nullptr , ICE_SIZE, ICE_DEPTH)
+	Actor(TID_EARTH, startX, startY, right, nullptr, false, ICE_SIZE, ICE_DEPTH)
 {
 }
 //------------------------------------------------------------------------------------
@@ -56,8 +60,10 @@ void Ice::doSomething() //Implemented only because it ineherents from pure virtu
     return;
 }
 //------------------------------------------------------------------------------------
-
-
+void Ice::annoy(int damage) {}
+//-----------------------------------
+void Ice::bribe() {}
+//------------------------------------------
 
 /*
  *
@@ -65,8 +71,8 @@ void Ice::doSomething() //Implemented only because it ineherents from pure virtu
  *
  */
 TunnelMan::TunnelMan(StudentWorld * world): 
-	Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world),
-	num_squirts(5), sonar_charges(1), gold_nuggets(0)
+	Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world, true),
+	num_squirts(5), sonar_charges(1), gold_nuggets(0), health(10)
 {
 }
 //------------------------------------------------------------------------------------
@@ -119,6 +125,15 @@ void TunnelMan::doSomething()
                 setDirection(down);
                 break;
             }
+			case KEY_PRESS_TAB:
+			{
+				if (gold_nuggets > 0) 
+				{
+					getWorld()->dropGoldNug(getX(), getY());
+					--gold_nuggets;
+				}
+				break;
+			}
 			case 'z':
 			{
 				if (sonar_charges > 0) 
@@ -127,13 +142,21 @@ void TunnelMan::doSomething()
 					getWorld()->useSonar();
 					--sonar_charges;
 				}
+				break;
 			}
         }
     }
     
     //Next, delete any ice at TunnelMan's current position
-    getWorld()->deleteIce(getX(), getY());
+    getWorld()->deleteIceAroundObject(getX(), getY());
 }
+//----------------------------
+void TunnelMan::annoy(int damage) //FIXME - implement
+{
+
+}
+//----------------------------
+void TunnelMan::bribe() {}
 //----------------------------
 void TunnelMan::incGoldNugs()
 {
@@ -147,7 +170,7 @@ void TunnelMan::decGoldNugs()
         --gold_nuggets;
 }
 //----------------------------
-int TunnelMan::getGoldNugs() 
+size_t TunnelMan::getGoldNugs() 
 {
 	return gold_nuggets;
 }
@@ -158,7 +181,7 @@ void TunnelMan::incSonarCharges()
 		++sonar_charges;
 }
 //----------------------------
-int TunnelMan::getSonarCharges() 
+size_t TunnelMan::getSonarCharges() 
 {
 	return sonar_charges;
 }
@@ -176,14 +199,34 @@ void TunnelMan::decNumSquirts()
         --num_squirts;
 }
 //----------------------------
-int TunnelMan::getNumSquirts() 
+size_t TunnelMan::getNumSquirts() 
 {
 	return num_squirts;
 }
 //----------------------------
+size_t TunnelMan::getHealth() 
+{
+	return health;
+}
+
+/*
+*
+PROTESTOR CLASS IMPLEMENTATION BELOW
+*
+*/
 
 
-
+void Protester::doSomething() //FIXME - implement
+{}
+//------------------------------------------
+void Protester::annoy(int damage) //FIXME - implement
+{}
+//------------------------------------------
+void Protester::bribe() //FIXME - implement
+{}
+//------------------------------------------
+void Protester::leaveOilField() //FIXME - implement
+{}
 //------------------------------------------
 
 /*
@@ -194,14 +237,18 @@ GOODIE CLASS IMPLEMENTATION BELOW
 
 
 Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay):
-    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
+    Actor(imageID, startX, startY, right, worldPtr, false, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
 	scoreValue(score), soundToPlay(sound), ticksPassed(0), maxTickLife(maxTicks)
 {
 }
 //-----------------------------------------------------------
+void Goodie::annoy(int damage) {}
+//------------------------------------------
+void Goodie::bribe() {}
+//------------------------------------------
 bool Goodie::checkIfTunnelManPickedUp(const double & distanceFromTunnelMan)
 {
-    if(distanceFromTunnelMan <= 3.0)
+    if(distanceFromTunnelMan <= PICKUP_DISTANCE)
     {
         setDead();
         getWorld()->playSound(soundToPlay);
@@ -263,8 +310,8 @@ void BarrelOfOil::doSomething()
  *
  */
 
-GoldNugget::GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks, bool shouldDisplay, bool canPickup): 
-	Goodie(TID_GOLD, startX, startY, world, SCORE_PICKUP_GOLD, SOUND_GOT_GOODIE, maxTicks, shouldDisplay),
+GoldNugget::GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup): 
+	Goodie(TID_GOLD, startX, startY, world, SCORE_PICKUP_GOLD, SOUND_GOT_GOODIE, GOLD_LIFETIME, shouldDisplay),
 	canBePickedUpByTunnelMan(canPickup)
 {
 }
@@ -274,6 +321,7 @@ void GoldNugget::doSomething()
 	if (!isAlive())
 		return;
 
+	//Checking if this is gold that was hidden originally
     if(canBePickedUpByTunnelMan)
     {   
         double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
@@ -288,9 +336,20 @@ void GoldNugget::doSomething()
             getWorld()->addToTunnelManInventory(ADD_GOLD_NUGGET);
         }
     }
+	//This was gold that TunnelMan dropped 
     else //FIXME - implement protestor bribe code
     {
-        
+		if (getTicksPassed() == getMaxTickLife())
+		{
+			setDead();
+		}
+		else 
+		{
+			if (getWorld()->checkForBribes(getX(), getY()))
+				setDead();
+
+			incTicksPassed();
+		}
     }
 }
 //------------------------------------------
@@ -315,11 +374,18 @@ void WaterPool::doSomething() //FIXME - implement temporary lifespan
 	if (!isAlive())
 		return;
 
-	double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
-
-	if (checkIfTunnelManPickedUp(distanceFromTunnelMan))
+	if (getTicksPassed() == getMaxTickLife())
+		setDead();
+	else
 	{
-		getWorld()->addToTunnelManInventory(ADD_SQUIRTS);
+		double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());
+
+		if (checkIfTunnelManPickedUp(distanceFromTunnelMan))
+		{
+			getWorld()->addToTunnelManInventory(ADD_SQUIRTS);
+		}
+
+		incTicksPassed();
 	}
 }
 //------------------------------------------
@@ -342,7 +408,6 @@ void Sonar::doSomething() //FIXME - implement temporary lifespan
 
 	if (getTicksPassed() == getMaxTickLife()) 
 		setDead();
-
 	else
 	{
 		double distanceFromTunnelMan = getWorld()->getTunnelManDistance(getX(), getY());

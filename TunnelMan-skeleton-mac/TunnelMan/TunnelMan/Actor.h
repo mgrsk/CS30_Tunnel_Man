@@ -5,11 +5,14 @@
 #define MAX_COORDINATE				(VIEW_HEIGHT - IMAGE_OFFSET)	//Largest X or Y coordinate an object can have
 #define TUNNEL_MAN_START_X          (30)
 #define TUNNEL_MAN_START_Y          (60)
-#define MAX_DISTANCE_INVISIBLE      (4)
+#define MAX_DISTANCE_INVISIBLE      (4.0)
+#define PICKUP_DISTANCE				(3.0)
 #define SONAR_RANGE					(12)
 
 #define STANDARD_IMAGE_SIZE         (1)
 #define ICE_SIZE                    (0.25)
+
+#define GOLD_LIFETIME				(100)
 
 #define ICE_DEPTH                   (3)
 #define GOODIE_DEPTH				(2)
@@ -36,16 +39,23 @@ class StudentWorld; //Forwarding declaration
 class Actor : public GraphObject
 {
 private:
-    bool stillAlive;
+    bool stillAlive;	//Tells gameworld if the object is still in play
+	bool canBeAnnoyed;	//Allows gameworld to determine if it is a protestor/TunnelMan, or another type of object
     StudentWorld * world;    //Allows classes to see the gameworld
     
 public:
-    Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection = right, StudentWorld * ptr = nullptr, double size = 1.0, int depth = 0, bool shouldDisplay = true);
+    Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, 
+		bool annoyable, double size = 1.0, int depth = 0, bool shouldDisplay = true);
     ~Actor();
+
     StudentWorld * getWorld();
     bool isAlive();
+	bool getCanBeAnnoyed();
     void setDead();
+
     virtual void doSomething() = 0;
+	virtual void annoy(int damage) = 0;
+	virtual void bribe() = 0;
 };
 
 //------------------------------------------
@@ -55,6 +65,8 @@ class Ice : public Actor
 public:
     Ice(unsigned int startX, unsigned int startY);
     void doSomething(); 
+	void annoy(int damage);
+	void bribe();
 };
 
 //------------------------------------------
@@ -62,7 +74,7 @@ public:
 class TunnelMan: public Actor
 {
 private:
-    size_t health = 10; //FIXME -should I make a base class for protestors/tunnelman w/ health/annoy member?
+	size_t health;
     size_t gold_nuggets;
     size_t sonar_charges;
     size_t num_squirts;
@@ -71,20 +83,43 @@ public:
     TunnelMan(StudentWorld * world);
     ~TunnelMan();
     void doSomething();
+	void annoy(int damage);
+	void bribe();
     
     void incGoldNugs();
     void decGoldNugs();
-	int getGoldNugs();
+	size_t getGoldNugs();
 
     void incSonarCharges();
-	int getSonarCharges();
+	size_t getSonarCharges();
 
     void increaseNumSquirts(); 
     void decNumSquirts();
-	int getNumSquirts();
+	size_t getNumSquirts();
 
-	int getHealth() { return health; } //FIXME - separate into cpp. determine need for base class
+	size_t getHealth();
 
+
+};
+
+//------------------------------------------
+
+
+/*
+*
+* PROTESTER CLASSES BELOW
+*
+*/
+
+class Protester : public Actor 
+{
+private:
+
+public:
+	void doSomething();
+	void annoy(int damage);
+	void bribe();
+	void leaveOilField();
 };
 
 //------------------------------------------
@@ -105,6 +140,9 @@ private:
 public:
     Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay);
     virtual void doSomething() = 0;
+	void annoy(int damage);
+	void bribe();
+
     bool checkIfTunnelManPickedUp(const double & distanceFromTunnelMan);
 
 	int getMaxTickLife();
@@ -130,7 +168,7 @@ class GoldNugget : public Goodie
 private:
     bool canBePickedUpByTunnelMan;
 public:
-    GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks, bool shouldDisplay, bool canPickup);
+    GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup);
     void doSomething();
     void checkIfProtestorPickedUp();
 };

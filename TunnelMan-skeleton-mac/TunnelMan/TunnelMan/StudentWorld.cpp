@@ -37,10 +37,11 @@ int StudentWorld::move()
 	setDisplayText();
 	askPlayerAndObjectsToDoSomething();
 	destroyDeadObjects();
+	generateGoodies();
 	++tickCount;
 
 	if (barrelCount == 0)
-		return GWSTATUS_FINISHED_LEVEL; //FIXME - does level increase on its own
+		return GWSTATUS_FINISHED_LEVEL; 
 
 	if (player->isAlive())
 		return GWSTATUS_CONTINUE_GAME;
@@ -88,7 +89,7 @@ void StudentWorld::decBarrels()
 	--barrelCount;
 }
 //---------------------------------------------------------------
-void StudentWorld::deleteIce(unsigned int xCord, unsigned int yCord)
+void StudentWorld::deleteIceAroundObject(unsigned int xCord, unsigned int yCord)
 {
     int newX;   //Will store the x-Coordinates in TunnelMan's 4x4 image
     int newY;   //Will store the y-Coordinates in TunnelMan's 4x4 image
@@ -125,7 +126,7 @@ double StudentWorld::calculateEuclidianDistance(double x1, double y1, double x2,
 	return sqrt(xDiffSquared + yDiffSquared);
 }
 //---------------------------------------------------------------
-bool StudentWorld::areaIsClear(unsigned int x, unsigned int y) 
+bool StudentWorld::areaIsClearOfObjects(unsigned int x, unsigned int y) 
 {
     double distance;
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
@@ -136,6 +137,19 @@ bool StudentWorld::areaIsClear(unsigned int x, unsigned int y)
 			return false;	//Object to be built is too close to another object and cannot be built there
 	}
 	return true;	//No objects within 6 units were found and object can be built
+}
+//---------------------------------------------------------------
+bool StudentWorld::areaIsClearOfIce(unsigned int x, unsigned int y) 
+{
+	for (int i = x; i < x + 4; ++i)
+	{
+		for (int j = y; j < y + 4; ++j)
+		{
+			if (iceField[i][j] != nullptr) //Checking if there is ice at that point
+				return false;
+		}
+	}
+	return true;
 }
 //---------------------------------------------------------------
 void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general and include goldnuggets
@@ -154,13 +168,13 @@ void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general
 		xCoord = rand() % (MAX_COORDINATE + 1);	//Random x coordinate from 0-60 inclusive.
 		yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //y coordinate 0-56 non-inclusive
             
-		while (!areaIsClear(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
+		while (!areaIsClearOfObjects(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
 		{
 			//Generate new coordinates because area was not clear or area overlapped vertical shaft
 			xCoord = rand() % (MAX_COORDINATE + 1);
 			yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
 		}
-
+		//Creating a new barrel of oil at that point
 		gameObjects.push_back(std::unique_ptr<Actor>(new BarrelOfOil(xCoord, yCoord, this)));
 	}
     
@@ -169,19 +183,19 @@ void StudentWorld::distributeBarrelsAndGold()	//FIXME - needs to be more general
         xCoord = rand() % (MAX_COORDINATE + 1);
         yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
         
-        while (!areaIsClear(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
+        while (!areaIsClearOfObjects(xCoord, yCoord) || (xCoord > 26 && xCoord < 34 && yCoord > 0))
         {
             xCoord = rand() % (MAX_COORDINATE + 1);
             yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
         }
         //Creating gold that is invisible but can be picked up by the player
-        gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false, maxGoldTicks,true)));
+        gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false,true)));
     }
 }
 //---------------------------------------------------------------
 void StudentWorld::generateGoodies() 
 {
-	int tickLife = 100; //For testing
+	int tickLife = 100; //For testing - FIXME later
 	//int tickLife = max(100, 300 – 10 * getLevel()) 
 	int G = (getLevel() * 25) + 300;
 	if (rand() % G == 0) //1 in G chance new goodie is made
@@ -189,6 +203,20 @@ void StudentWorld::generateGoodies()
 		int P = rand() % 5; //1 in 5 chance sonar is made
 		if (P == 0)	//Generate a sonar
 		{
+			gameObjects.push_back(std::unique_ptr<Actor>(new Sonar(0, MAX_COORDINATE, this, tickLife)));
+		}
+		else 
+		{
+			int xCoord = rand() % (MAX_COORDINATE + 1);	//Random x coordinate from 0-60 inclusive.
+			int yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //y coordinate 0-56 non-inclusive
+
+			//Generate new random coordinates until the area is clear of ice and objects
+			while (!areaIsClearOfIce(xCoord, yCoord) || !areaIsClearOfObjects(xCoord, yCoord)) 
+			{
+				xCoord = rand() % (MAX_COORDINATE + 1);
+				yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
+			}
+			gameObjects.push_back(std::unique_ptr<Actor>(new WaterPool(xCoord, yCoord, this, tickLife)));
 		}
 	}
 
@@ -238,6 +266,21 @@ void StudentWorld::addToTunnelManInventory(int change)
 	}
 }
 //---------------------------------------------------------------
+bool StudentWorld::checkForBribes(unsigned int x, unsigned int y) 
+{
+	double distance;
+	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
+	{
+		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+		if (distance <= PICKUP_DISTANCE && (*it)->getCanBeAnnoyed()) 
+		{
+			(*it)->bribe();
+			return true;
+		}
+	}
+	return false;
+}
+//---------------------------------------------------------------
 void StudentWorld::useSonar() 
 {
 	//iterating through the gameObjects list and making the ones close to tunnelman visible
@@ -250,4 +293,9 @@ void StudentWorld::useSonar()
 		if (distance < SONAR_RANGE)
 			(*it)->setVisible(true);
 	}
+}
+//---------------------------------------------------------------
+void StudentWorld::dropGoldNug(unsigned int x, unsigned int y) 
+{
+	gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(x, y, this, true, false)));
 }
