@@ -2,7 +2,7 @@
 #define ACTOR_H_
 
 #define IMAGE_OFFSET                (4)
-#define MAX_COORDINATE				(VIEW_HEIGHT - IMAGE_OFFSET)	//Largest X or Y coordinate an object can have
+#define MAX_COORDINATE				(VIEW_HEIGHT - IMAGE_OFFSET)//Largest X or Y coordinate an object can have
 #define TUNNEL_MAN_START_X          (30)
 #define TUNNEL_MAN_START_Y          (60)
 #define MAX_DISTANCE_INVISIBLE      (4.0)
@@ -14,7 +14,15 @@
 
 #define GOLD_LIFETIME				(100)
 #define MAX_TICKS_BOULDER_WAITING	(30)
-#define BOULDER_DAMAGE              (10)
+#define SQUIRT_LIFETIME             (4)
+
+#define DAMAGE_BOULDER              (10)
+#define DAMAGE_SQUIRT_GUN           (2)
+
+#define DEFAULT_GOLD_NUGGETS        (0)
+#define DEFAULT_SONAR_CHARGES       (1)
+#define DEFAULT_WATER_SQUIRTS       (25)
+#define DEFAULT_HEALTH_TUNNELMAN    (10)
 
 #define ICE_DEPTH                   (3)
 #define GOODIE_DEPTH				(2)
@@ -42,23 +50,24 @@ class Actor : public GraphObject
 {
 private:
     bool stillAlive;	//Tells gameworld if the object is still in play
-	bool canBeAnnoyed;	//Allows gameworld to determine if it is a protestor/TunnelMan, or another type of object
     StudentWorld * world;    //Allows classes to see the gameworld
     
 public:
-    Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, 
-		bool annoyable = false, double size = 1.0, int depth = 0, bool shouldDisplay = true);
+    Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, double size = 1.0, int depth = 0, bool shouldDisplay = true);
     ~Actor();
 
     StudentWorld * getWorld();
     bool isAlive();
-	bool getCanBeAnnoyed();
+	
     void setDead();
+    bool moveInDirection(Direction d);
 
     virtual void doSomething() = 0;
+    virtual bool canBeAnnoyed();
+    virtual bool isBoulder();
 	virtual void annoy(size_t damage);
 	virtual void bribe();
-    virtual bool isBoulder();
+    
 };
 
 //------------------------------------------
@@ -83,6 +92,7 @@ private:
 public:
     TunnelMan(StudentWorld * world);
     ~TunnelMan();
+    bool canBeAnnoyed() override;
     void doSomething();
 	void annoy(size_t damage) override;
     
@@ -123,6 +133,24 @@ public:
     
 };
 
+//------------------------------------------
+
+/*
+ *
+ * SQUIRT CLASS BELOW
+ *
+*/
+
+class Squirt : public Actor
+{
+private:
+    int ticksAlive;
+public:
+    Squirt(unsigned int x, unsigned int y, Direction startDirection, StudentWorld * world);
+    void doSomething();
+};
+
+
 
 /*
 *
@@ -136,8 +164,9 @@ private:
 
 public:
 	void doSomething();
-	void annoy(size_t damage);
-	void bribe();
+	void annoy(size_t damage) override;
+    bool canBeAnnoyed() override;
+	void bribe() override;
 	void leaveOilField();
 };
 

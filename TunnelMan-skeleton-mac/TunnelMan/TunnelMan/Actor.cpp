@@ -10,8 +10,8 @@
  *
  */
 
-Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, bool annoyable, double size, int depth, bool shouldDisplay):
-	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true), world(ptr), canBeAnnoyed(annoyable)
+Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, double size, int depth, bool shouldDisplay):
+	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true), world(ptr)
 {
     setVisible(shouldDisplay);
 }
@@ -36,21 +36,69 @@ StudentWorld * Actor::getWorld()
     return world;
 }
 //------------------------------------------
-bool Actor::getCanBeAnnoyed() 
+bool Actor::moveInDirection(Direction d)
 {
-	return canBeAnnoyed;
+    switch(d)
+    {
+        case left:
+        {
+            if(getX() > 0)
+            {
+                moveTo(getX() - 1, getY());
+                return true;
+            }
+            else
+                return false;
+        }
+        case right:
+        {
+            if(getX() < MAX_COORDINATE)
+            {
+                moveTo(getX() + 1, getY());
+                return true;
+            }
+            else
+                return false;
+        }
+        case up:
+        {
+            if(getY() < MAX_COORDINATE)
+            {
+                moveTo(getX(), getY() + 1);
+                return true;
+            }
+            else
+                return false;
+        }
+        case down:
+        {
+            if(getY() > 0)
+            {
+                moveTo(getX(), getY() - 1);
+                return true;
+            }
+            else
+                return false;
+        }
+        case none:
+            return false;
+    }
 }
 //------------------------------------------
-void Actor::bribe() {}  //To be overrided by necessary classes
-//------------------------------------------
-void Actor::annoy(size_t damage) {}  //To be overrided by necessary classes
+bool Actor::canBeAnnoyed() 
+{
+	return false;
+}
 //------------------------------------------
 bool Actor::isBoulder()
 {
     return false;
 }
 //------------------------------------------
-
+void Actor::bribe() {}  //To be overrided by necessary classes
+//------------------------------------------
+void Actor::annoy(size_t damage) {}  //To be overrided by necessary classes
+//------------------------------------------
 
 /*
  *
@@ -59,11 +107,11 @@ bool Actor::isBoulder()
  */
 
 Ice::Ice(unsigned int startX, unsigned int startY): 
-	Actor(TID_EARTH, startX, startY, right, nullptr, false, ICE_SIZE, ICE_DEPTH)
+	Actor(TID_EARTH, startX, startY, right, nullptr, ICE_SIZE, ICE_DEPTH)
 {
 }
 //------------------------------------------------------------------------------------
-void Ice::doSomething() //Implemented only because it ineherents from pure virtual function
+void Ice::doSomething() //Ice does nothing
 {
     return;
 }
@@ -75,8 +123,8 @@ void Ice::doSomething() //Implemented only because it ineherents from pure virtu
  *
  */
 TunnelMan::TunnelMan(StudentWorld * world): 
-	Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world, true),
-	num_squirts(5), sonar_charges(1), gold_nuggets(0), health(10)
+	Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world),
+num_squirts(DEFAULT_WATER_SQUIRTS), sonar_charges(DEFAULT_SONAR_CHARGES), gold_nuggets(DEFAULT_GOLD_NUGGETS), health(DEFAULT_HEALTH_TUNNELMAN)
 {
 }
 //------------------------------------------------------------------------------------
@@ -95,42 +143,50 @@ void TunnelMan::doSomething()
         {
             case KEY_PRESS_LEFT:
             {
-                if(getX() > 0 && getDirection() == left)
+                if(getDirection() == left)
                 {
                     if(getWorld()->noBouldersBlocking(getX() - 1, getY()))
-                        moveTo(getX() - 1, getY());
+                        moveInDirection(left);
                 }
-                setDirection(left);
+                else
+                    setDirection(left);
+                
                 break;
             }
             case KEY_PRESS_RIGHT:
             {
-                if(getX() < MAX_COORDINATE && getDirection() == right)
+                if(getDirection() == right)
                 {
                     if(getWorld()->noBouldersBlocking(getX() + 1, getY()))
-                        moveTo(getX() + 1, getY());
+                        moveInDirection(right);
                 }
-                setDirection(right);
+                else
+                    setDirection(right);
+                
                 break;
             }
             case KEY_PRESS_UP:
             {
-                if(getY() < MAX_COORDINATE && getDirection() == up)
+                if(getDirection() == up)
                 {
                     if(getWorld()->noBouldersBlocking(getX(), getY() + 1))
-                        moveTo(getX(), getY() + 1);
+                        moveInDirection(up);
                 }
-                setDirection(up);
+                else
+                    setDirection(up);
+                
                 break;
             }
             case KEY_PRESS_DOWN:
             {
-                if(getY() > 0 && getDirection() == down)
+                if(getDirection() == down)
                 {
                     if(getWorld()->noBouldersBlocking(getX(), getY() - 1))
-                        moveTo(getX(), getY() - 1);
+                        moveInDirection(down);
                 }
-                setDirection(down);
+                else
+                    setDirection(down);
+                
                 break;
             }
 			case KEY_PRESS_TAB:
@@ -142,6 +198,15 @@ void TunnelMan::doSomething()
 				}
 				break;
 			}
+            case KEY_PRESS_SPACE:
+            {
+                if(num_squirts > 0)
+                {
+                    getWorld()->useSquirtGun(getDirection());
+                    --num_squirts;
+                }
+                break;
+            }
 			case 'z':
 			{
 				if (sonar_charges > 0) 
@@ -168,6 +233,11 @@ void TunnelMan::annoy(size_t damage)
 	}
 	else
 		health -= damage;
+}
+//------------------------------------------
+bool TunnelMan::canBeAnnoyed()
+{
+    return true;
 }
 //----------------------------
 void TunnelMan::incGoldNugs()
@@ -220,6 +290,52 @@ size_t TunnelMan::getHealth()
 {
 	return health;
 }
+//------------------------------------------
+
+/*
+ *
+ * SQUIRT CLASS IMPLEMENTATION BELOW
+ *
+ */
+
+Squirt::Squirt(unsigned int x, unsigned int y, Direction startDirection, StudentWorld * world):
+Actor(TID_WATER_SPURT, x, y, startDirection, world, false, 1.0, 1), ticksAlive(0)
+{
+}
+//------------------------------------------
+void Squirt::doSomething()
+{
+    if(!isAlive())
+        return;
+    
+    //Checking if the squirt has been alive for too long
+    if(ticksAlive == SQUIRT_LIFETIME)
+    {
+        setDead();
+        return;
+    }
+    
+    //Checking if the squirt hit anything. If it did, it will be destroyed.
+    if(getWorld()->checkForSquirtGunHits(getX(), getY()))
+    {
+        setDead();
+        return;
+    }
+
+    ///Checking that there is no ice or boulders in the way
+    if(getWorld()->noIceBlocking(getX(), getY(), getDirection())
+       && getWorld()->noBouldersBlocking(getX(), getY()))
+    {
+        //Tries to move. If successful, moves in its current direction.
+        if(!moveInDirection(getDirection()))
+            setDead();  //Movement failed because it went out of bounds
+    }
+    else
+        setDead();
+    
+    ++ticksAlive;
+}
+//------------------------------------------
 
 /*
 *
@@ -228,9 +344,10 @@ size_t TunnelMan::getHealth()
 */
 
 Boulder::Boulder(unsigned int x, unsigned int y, StudentWorld * world):
-	Actor(TID_BOULDER, x, y, down, world, false, STANDARD_IMAGE_SIZE, 1), atRest(true), ticksWaiting(0)
+	Actor(TID_BOULDER, x, y, down, world, STANDARD_IMAGE_SIZE, 1), atRest(true), ticksWaiting(0)
 {
 }
+
 //------------------------------------------
 void Boulder::doSomething() //FIXME - implement
 {
@@ -239,31 +356,35 @@ void Boulder::doSomething() //FIXME - implement
 
 	if(atRest) 
 	{
-		if (!getWorld()->checkForIceBelowBoulder(getX(), getY())) 
+		if (getWorld()->noIceBlocking(getX(), getY(), down))
 			atRest = false;
 	}
 	else 
 	{
-		if (ticksWaiting == MAX_TICKS_BOULDER_WAITING)
-		{
-			getWorld()->playSound(SOUND_FALLING_ROCK);
-		}
 		if (ticksWaiting >= MAX_TICKS_BOULDER_WAITING)
 		{
 			fall();
+            
+            //Playing the sound if this is the initial fall
+            if (ticksWaiting == MAX_TICKS_BOULDER_WAITING)
+                getWorld()->playSound(SOUND_FALLING_ROCK);
 		}
 		++ticksWaiting;
 	}
 	
 }
 //------------------------------------------
-void Boulder::fall() //FIXME - player won't die and boulder won't stop
+void Boulder::fall()
 {
 	getWorld()->checkForBoulderHits(getX(), getY());
-	if (getY() > 0 && !getWorld()->checkForIceBelowBoulder(getX(), getY()))
-		moveTo(getX(), getY() - 1);
-	else
-		setDead();
+	if (getWorld()->noIceBlocking(getX(), getY(), down))
+    {
+        //Checking if it can move, and moving down if so.
+		if(!moveInDirection(down))
+            setDead();  //Movement failed - rock reached the bottom. 
+    }
+    else
+        setDead();
 }
 //------------------------------------------
 bool Boulder::isBoulder()
@@ -291,6 +412,10 @@ void Protester::bribe() //FIXME - implement
 void Protester::leaveOilField() //FIXME - implement
 {}
 //------------------------------------------
+bool Protester::canBeAnnoyed()
+{
+    return true;
+}
 
 /*
  *
@@ -300,7 +425,7 @@ GOODIE CLASS IMPLEMENTATION BELOW
 
 
 Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay):
-    Actor(imageID, startX, startY, right, worldPtr, false, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
+    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
 	scoreValue(score), soundToPlay(sound), ticksPassed(0), maxTickLife(maxTicks)
 {
 }

@@ -28,7 +28,6 @@ int StudentWorld::init()
 	makeIceField();
 	player = std::unique_ptr<TunnelMan>(new TunnelMan(this));
 	distributeBarrelsGoldAndBoulders();
-	//distributeBoulders();
 	return GWSTATUS_CONTINUE_GAME;
 }
 //---------------------------------------------------------------
@@ -136,7 +135,7 @@ bool StudentWorld::areaIsClearOfObjects(unsigned int x, unsigned int y)
 	{
 		//Checking if the area within 6 Euclidian units is clear of other objects
         distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
-		if(distance < MIN_EUCLIDIAN_DIST)
+		if(distance < MIN_SPAWN_DIST)
 			return false;	//Object to be built is too close to another object and cannot be built there
 	}
 	return true;	//No objects within 6 units were found and object can be built
@@ -174,27 +173,22 @@ void StudentWorld::generateObjects(int numObjects, int typeOfObject)
 {
     int xCoord;
     int yCoord;
+    bool isBoulder;
+    
+    if(typeOfObject == GENERATE_BOULDER)
+        isBoulder = true;
+    else
+        isBoulder = false;
     
     for(size_t i = 0; i < numObjects; ++i)
     {
-        xCoord = rand() % (MAX_COORDINATE + 1);    //Random x coordinate from 0-60 inclusive.
-        
-        if(typeOfObject == GENERATE_BOULDER)
-            yCoord = rand() % (37) + MIN_BOULDER_HEIGHT; //y coordinate 20-56 inclusive
-        else
-            yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
-        
+        generateRandomCoordinates(xCoord, yCoord, isBoulder);
         
         while (!areaIsClearOfObjects(xCoord, yCoord) || ((xCoord > SHAFT_LEFT_COORD - IMAGE_OFFSET) &&
                 (xCoord <= SHAFT_RIGHT_COORD) && (yCoord > 0)))
         {
             //Generate new coordinates because area was not clear or area overlapped vertical shaft
-            xCoord = rand() % (MAX_COORDINATE + 1);
-            
-            if(typeOfObject == GENERATE_BOULDER)
-                yCoord = rand() % (37) + MIN_BOULDER_HEIGHT;
-            else
-                yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
+            generateRandomCoordinates(xCoord, yCoord, isBoulder);
         }
         
         switch(typeOfObject)
@@ -206,7 +200,7 @@ void StudentWorld::generateObjects(int numObjects, int typeOfObject)
             }
             case GENERATE_GOLD:
             {
-                gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false,true)));
+                gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(xCoord, yCoord, this, false, true)));
                 break;
             }
             case GENERATE_BOULDER:
@@ -224,9 +218,10 @@ void StudentWorld::distributeBarrelsGoldAndBoulders()
 	//barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
     //int goldCount = std::max(5 - getLevel() / 2, 2); FIXME - implement this
     //int Boulders = min(current_level_number / 2 + 2, 9)
-	this->barrelCount = 35;
-    int goldCount = 3; //FIXME - for testing only
-    int boulderCount = 9;
+	this->barrelCount = 25; //FIXME - for testing only
+    int goldCount = 10
+    ; //FIXME - for testing only
+    int boulderCount = 9; //FIXME - for testing only
     
     generateObjects(barrelCount, GENERATE_OIL);
     generateObjects(goldCount, GENERATE_GOLD);
@@ -234,11 +229,22 @@ void StudentWorld::distributeBarrelsGoldAndBoulders()
     
 }
 //---------------------------------------------------------------
+void StudentWorld::generateRandomCoordinates(int & xCoord, int & yCoord, bool isBoulder)
+{
+    xCoord = rand() % (MAX_COORDINATE + 1);    //Random x coordinate from 0-60 inclusive.
+    
+    if(isBoulder)
+        yCoord = rand() % (37) + MIN_BOULDER_HEIGHT; //y coordinate 20-56 inclusive
+    else
+        yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET + 1); //y coordinate 0-56 inclusive
+}
+//---------------------------------------------------------------
 void StudentWorld::generateGoodies() 
 {
 	int tickLife = 100; //For testing - FIXME later
 	//int tickLife = max(100, 300 – 10 * getLevel()) 
-	int G = (getLevel() * 25) + 300;
+	//int G = (getLevel() * 25) + 300;
+    int G = 100; //FIXME - testing only
 	if (rand() % G == 0) //1 in G chance new goodie is made
 	{
 		int P = rand() % 5; //1 in 5 chance sonar is made
@@ -248,20 +254,18 @@ void StudentWorld::generateGoodies()
 		}
 		else 
 		{
-			int xCoord = rand() % (MAX_COORDINATE + 1);	//Random x coordinate from 0-60 inclusive.
-			int yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET); //y coordinate 0-56 non-inclusive
+            int xCoord;
+            int yCoord;
+            generateRandomCoordinates(xCoord, yCoord, false);
 
 			//Generate new random coordinates until the area is clear of ice and objects
 			while (!areaIsClearOfIce(xCoord, yCoord) || !areaIsClearOfObjects(xCoord, yCoord)) 
 			{
-				xCoord = rand() % (MAX_COORDINATE + 1);
-				yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET);
+                generateRandomCoordinates(xCoord, yCoord, false);
 			}
 			gameObjects.push_back(std::unique_ptr<Actor>(new WaterPool(xCoord, yCoord, this, tickLife)));
 		}
 	}
-
-	
 }
 //---------------------------------------------------------------
 double StudentWorld::getTunnelManDistance(unsigned int x, unsigned int y) 
@@ -313,7 +317,10 @@ bool StudentWorld::checkForBribes(unsigned int x, unsigned int y)
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
 	{
 		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
-		if (distance <= PICKUP_DISTANCE && (*it)->getCanBeAnnoyed()) 
+        
+        //Only protestors and tunnelman can be annoyed, but since tunnelman is not in
+        //the gameobjects list, only protestors can pass this if statement and be bribed
+		if (distance <= PICKUP_DISTANCE && (*it)->canBeAnnoyed())
 		{
 			(*it)->bribe();
 			return true;
@@ -322,16 +329,89 @@ bool StudentWorld::checkForBribes(unsigned int x, unsigned int y)
 	return false;
 }
 //---------------------------------------------------------------
-bool StudentWorld::checkForIceBelowBoulder(unsigned int x, unsigned int y) 
+
+//FIXME - consolidate into one function. Also squirt gun doesn't work on top of field
+bool StudentWorld::noIceBlocking(unsigned int x, unsigned int y, GraphObject::Direction d)
 {
-	for (int i = x; i < x + IMAGE_OFFSET; ++i) 
-	{
-		//Checking if there is ice immediately below the boulder
-		if (iceField[i][y - 1] != nullptr)
-			return true;
-	}
-	return false;
+    switch(d)
+    {
+        case GraphObject::down:
+        {
+            return noIceBlockingDown(x, y);
+        }
+        case GraphObject::up:
+        {
+            return noIceBlockingUp(x, y);
+        }
+        case GraphObject::left:
+        {
+            return noIceBlockingLeft(x, y);
+        }
+        case GraphObject::right:
+        {
+            return noIceBlockingRight(x, y);
+        }
+        case GraphObject::none:
+            return false;
+    }
 }
+//---------------------------------------------------------------
+/*
+If an object is moving left, then (x - 1, y) to (x - 1, y + 3)
+must be checked. x - 1 is constant
+If down, then (x, y - 1) to (x + 3, y - 1).  y - 1 is constant
+ If an object is moving right, then (x + 1), y to (x + 1, y + 3)
+ must be checked. x + 1 is constant
+ If up, then (x, y + 1) to (x + 3, y + 1).  y + 1 is constant
+ */
+bool StudentWorld::noIceBlockingLeft(int x, int y)
+{
+    if(x - 1 < 0)
+        return false;   //Object was heading out of bounds
+    
+    for(int i = y; i < y + IMAGE_OFFSET; ++i)
+    {
+        if(iceField[x - 1][i] != nullptr)
+            return false;
+    }
+    return true;
+}
+//---------------------------------------------------------------
+bool StudentWorld::noIceBlockingRight(int x, int y)
+{
+    for(int i = y; i < y + IMAGE_OFFSET; ++i)
+    {
+        if(iceField[x + IMAGE_OFFSET][i] != nullptr)
+            return false;
+    }
+    return true;
+}
+//---------------------------------------------------------------
+bool StudentWorld::noIceBlockingUp(int x, int y)
+{
+    for(int i = x; i < x + IMAGE_OFFSET; ++i)
+    {
+        if(iceField[x][y + IMAGE_OFFSET] != nullptr)
+            return false;
+    }
+    return true;
+}
+//---------------------------------------------------------------
+bool StudentWorld::noIceBlockingDown(int x, int y)
+{
+    if(y - 1 < 0)
+        return false;   //Object was heading out of bounds
+    
+    for(int i = x; i < x + IMAGE_OFFSET; ++i)
+    {
+        if(iceField[i][y - 1] != nullptr)
+            return false;
+    }
+    return true;
+}
+//---------------------------------------------------------------
+
+
 //---------------------------------------------------------------
 void StudentWorld::checkForBoulderHits(unsigned int x, unsigned int y) 
 {
@@ -340,11 +420,32 @@ void StudentWorld::checkForBoulderHits(unsigned int x, unsigned int y)
 	{
 		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
 
-		if (distance <= 3.0)
-			(*it)->annoy(BOULDER_DAMAGE);
+		if (distance <= MIN_INTERACT_DIST)
+			(*it)->annoy(DAMAGE_BOULDER);
 	}
     if(getTunnelManDistance(x, y) <= 3.0)
-        player->annoy(BOULDER_DAMAGE);
+        player->annoy(DAMAGE_BOULDER);
+}
+//---------------------------------------------------------------
+bool StudentWorld::checkForSquirtGunHits(unsigned int x, unsigned int y)
+{
+    bool annoyedProtester = false;
+    double distance;
+    
+    for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
+    {
+        if((*it)->canBeAnnoyed())
+        {
+            distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+            if(distance <= MIN_INTERACT_DIST)
+            {
+                (*it)->annoy(DAMAGE_SQUIRT_GUN);
+                annoyedProtester = true;
+            }
+        }
+    }
+    
+    return annoyedProtester;
 }
 //---------------------------------------------------------------
 void StudentWorld::useSonar() 
@@ -353,6 +454,7 @@ void StudentWorld::useSonar()
 	int x = player->getX();
 	int y = player->getY();
 	double distance;
+    
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
 	{
 		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
@@ -360,6 +462,14 @@ void StudentWorld::useSonar()
 		if (distance < SONAR_RANGE)
 			(*it)->setVisible(true);
 	}
+}
+//---------------------------------------------------------------
+void StudentWorld::useSquirtGun(GraphObject::Direction d)
+{
+    int x = player->getX();
+    int y = player->getY();
+    gameObjects.push_back(std::unique_ptr<Actor>(new Squirt(x, y, d, this)));
+    playSound(SOUND_PLAYER_SQUIRT);
 }
 //---------------------------------------------------------------
 void StudentWorld::dropGoldNug(unsigned int x, unsigned int y) 

@@ -13,8 +13,9 @@
 #include <memory>
 #include <list>
 
-#define MIN_EUCLIDIAN_DIST	(6)	//Minimum distance objects must be spawned from each other
-#define MIN_BOULDER_HEIGHT  (20)
+#define MIN_SPAWN_DIST	    (6)	//Minimum distance objects must be spawned from each other
+#define MIN_INTERACT_DIST   (3) //Minimum distance for objects to interact with each other
+#define MIN_BOULDER_HEIGHT  (20) //Minimum y coordinate boulders can spawn at
 
 #define GENERATE_OIL        (1)
 #define GENERATE_GOLD       (2)
@@ -24,6 +25,7 @@
 class Actor;
 class TunnelMan;
 class Ice;
+class Squirt;
 class BarrelOfOil;
 class Sonar;
 class WaterPool;
@@ -44,6 +46,7 @@ private:
     
     void makeIceField();    //Generates the ice field in the game
     void destroyIceField(); //Destroys the ice field during cleanup
+    
 	void askPlayerAndObjectsToDoSomething();	//Asks player and all objects in gameObjects list to do something
 	void destroyDeadObjects();	//Removes dead objects from the gameObjects list
     
@@ -51,6 +54,12 @@ private:
     void distributeBarrelsGoldAndBoulders();	//Randomly distributes these barrels/gold in the field during initialization
 	void generateGoodies();
 	double calculateEuclidianDistance(double x1, double y1, double x2, double y2);
+    void generateRandomCoordinates(int & xCoord, int & yCoord, bool isBoulder);
+    
+    bool noIceBlockingRight(int x, int y);
+    bool noIceBlockingDown(int x, int y);
+    bool noIceBlockingUp(int x, int y);
+    bool noIceBlockingLeft(int x, int y);
     
 public:
     StudentWorld(std::string assetDir);
@@ -70,16 +79,16 @@ public:
 	
 	double getTunnelManDistance(unsigned int x, unsigned int y);	//Tells an object if TunnelMan is close enough to interact with it
 	bool checkForBribes(unsigned int x, unsigned int y);
-	bool checkForIceBelowBoulder(unsigned int x, unsigned int y);
+    bool noIceBlocking(unsigned int x, unsigned int y, GraphObject::Direction d);
+    bool checkForSquirtGunHits(unsigned int x, unsigned int y);
 	void checkForBoulderHits(unsigned int x, unsigned int y);
     
-    
 
-
-
-	void addToTunnelManInventory(int change);	//Adds items to TunnelMan's Inventory (sonar, water, gold, etc)
+	void addToTunnelManInventory(int change); //Adds items to TunnelMan's Inventory (sonar, water, gold, etc)
 	void useSonar();
+    void useSquirtGun(GraphObject::Direction d);
 	void dropGoldNug(unsigned int x, unsigned int y);
+    
 
 
 
