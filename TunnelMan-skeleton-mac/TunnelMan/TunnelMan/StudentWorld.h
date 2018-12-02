@@ -1,11 +1,6 @@
 #ifndef STUDENTWORLD_H_
 #define STUDENTWORLD_H_
 
-//Coordinates for the shaft in the middle
-#define SHAFT_LEFT_COORD	(30)
-#define SHAFT_RIGHT_COORD	(33)
-#define SHAFT_BOTTOM_COORD	(4)
-
 #include "GameWorld.h"
 #include "GameConstants.h"
 #include "Actor.h"
@@ -13,8 +8,13 @@
 #include <memory>
 #include <list>
 
+//Coordinates for the shaft in the middle
+#define SHAFT_LEFT_COORD    (30)
+#define SHAFT_RIGHT_COORD    (33)
+#define SHAFT_BOTTOM_COORD    (4)
+
 #define MIN_SPAWN_DIST	    (6)	//Minimum distance objects must be spawned from each other
-#define MIN_INTERACT_DIST   (3) //Minimum distance for objects to interact with each other
+#define MIN_INTERACT_DIST   (3.0) //Minimum distance for objects to interact with each other
 #define MIN_BOULDER_HEIGHT  (20) //Minimum y coordinate boulders can spawn at
 
 #define GENERATE_OIL        (1)
@@ -24,13 +24,13 @@
 //Forwarding declarations
 class Actor;
 class TunnelMan;
-class Ice;
+class Earth;
 class Squirt;
 class BarrelOfOil;
 class Sonar;
 class WaterPool;
 class Boulder;
-class Protester;
+class RegularProtester;
 class HardcoreProtestor;
 
 
@@ -39,27 +39,26 @@ class StudentWorld : public GameWorld
 {
 private:
 	size_t barrelCount;		//Keeps track of number of active barrels
+    int ticksSinceLastProtesterWasAdded;
     
-    std::unique_ptr<Ice> iceField[VIEW_WIDTH][VIEW_HEIGHT - IMAGE_OFFSET];	//Holds the ice field
+    std::unique_ptr<Earth> earthField[VIEW_WIDTH][VIEW_HEIGHT];	//Holds the earth field
     std::unique_ptr<TunnelMan> player;	//The player object
     std::list<std::unique_ptr<Actor>> gameObjects;	//All other game objects, eg. sonar, enemies, etc
     
-    void makeIceField();    //Generates the ice field in the game
-    void destroyIceField(); //Destroys the ice field during cleanup
+    void makeEarthField();    //Generates the earth field in the game
+    void destroyEarthField(); //Destroys the earth field during cleanup
     
 	void askPlayerAndObjectsToDoSomething();	//Asks player and all objects in gameObjects list to do something
 	void destroyDeadObjects();	//Removes dead objects from the gameObjects list
     
-    void generateObjects(int numObjects, int typeOfObject);
-    void distributeBarrelsGoldAndBoulders();	//Randomly distributes these barrels/gold in the field during initialization
-	void generateGoodies();
-	double calculateEuclidianDistance(double x1, double y1, double x2, double y2);
-    void generateRandomCoordinates(int & xCoord, int & yCoord, bool isBoulder);
     
-    bool noIceBlockingRight(int x, int y);
-    bool noIceBlockingDown(int x, int y);
-    bool noIceBlockingUp(int x, int y);
-    bool noIceBlockingLeft(int x, int y);
+    void distributeBarrelsGoldAndBoulders();	//Randomly distributes these barrels/gold in the field during initialization
+	void generateObjects(int numObjects, int typeOfObject);
+    void generateGoodies();
+    void generateRandomCoordinates(int & xCoord, int & yCoord, bool isBoulder);
+    void generateProtesters();
+	double calculateEuclidianDistance(double x1, double y1, double x2, double y2);
+    
     
 public:
     StudentWorld(std::string assetDir);
@@ -72,14 +71,17 @@ public:
 	void setDisplayText();
     
 	void decBarrels();
-    void deleteIceAroundObject(unsigned int xCord, unsigned int yCord);	//Deletes ice in area overlapping an object's image
+    void deleteEarthAroundObject(unsigned int xCord, unsigned int yCord);	//Deletes earth in area overlapping an object's image
 	bool areaIsClearOfObjects(unsigned int x, unsigned int y);	//Determines if an object can be spawned by checking area surrounding it for objects in the gameObjects list
-	bool areaIsClearOfIce(unsigned int x, unsigned int y);
+	bool areaIsClearOfEarth(unsigned int x, unsigned int y);
     bool noBouldersBlocking(unsigned int x, unsigned int y);
 	
 	double getTunnelManDistance(unsigned int x, unsigned int y);	//Tells an object if TunnelMan is close enough to interact with it
+    bool canProteserShoutAtTunnelMan(unsigned int x, unsigned int y, GraphObject::Direction d);
+    void shoutAtTunnelMan();
+    bool shiftCoordinates(int &x, int &y, GraphObject::Direction d);
 	bool checkForBribes(unsigned int x, unsigned int y);
-    bool noIceBlocking(unsigned int x, unsigned int y, GraphObject::Direction d);
+    bool noEarthBlocking(unsigned int x, unsigned int y, GraphObject::Direction d);
     bool checkForSquirtGunHits(unsigned int x, unsigned int y);
 	void checkForBoulderHits(unsigned int x, unsigned int y);
     

@@ -21,7 +21,7 @@ Actor::~Actor()
     world = nullptr;    //FIXME - is this needed?
 }
 //------------------------------------------
-bool Actor::isAlive()
+bool Actor::isAlive() const
 {
     return stillAlive;
 }
@@ -31,7 +31,7 @@ void Actor::setDead()
     stillAlive = false;
 }
 //------------------------------------------
-StudentWorld * Actor::getWorld()
+StudentWorld * Actor::getWorld() const
 {
     return world;
 }
@@ -85,46 +85,78 @@ bool Actor::moveInDirection(Direction d)
     }
 }
 //------------------------------------------
-bool Actor::canBeAnnoyed() 
+bool Actor::canBeAnnoyed() const
 {
 	return false;
 }
 //------------------------------------------
-bool Actor::isBoulder()
+bool Actor::isBoulder() const
 {
     return false;
 }
 //------------------------------------------
 void Actor::bribe() {}  //To be overrided by necessary classes
 //------------------------------------------
-void Actor::annoy(size_t damage) {}  //To be overrided by necessary classes
+void Actor::annoy(int damage) {}  //To be overrided by necessary classes
 //------------------------------------------
 
 /*
  *
- ICE CLASS IMPLEMENTATION BELOW
+ EARTH CLASS IMPLEMENTATION BELOW
  *
  */
 
-Ice::Ice(unsigned int startX, unsigned int startY): 
-	Actor(TID_EARTH, startX, startY, right, nullptr, ICE_SIZE, ICE_DEPTH)
+Earth::Earth(unsigned int startX, unsigned int startY):
+	Actor(TID_EARTH, startX, startY, right, nullptr, EARTH_SIZE, DEPTH_EARTH)
 {
 }
 //------------------------------------------------------------------------------------
-void Ice::doSomething() //Ice does nothing
+void Earth::doSomething() //Earth does nothing
 {
     return;
 }
 //------------------------------------------------------------------------------------
+
+
+
+/*
+ *
+ PEOPLE CLASS IMPLEMENTATION BELOW
+ *
+ */
+
+People::People(int imageID, unsigned int x, unsigned int y, Direction startDirection, StudentWorld * world, int maxHealth):
+Actor(imageID, x, y, startDirection, world), health(maxHealth)
+{
+}
+//------------------------------------
+bool People::canBeAnnoyed() const
+{
+    return true;
+}
+//------------------------------------
+int People::getHealth() const
+{
+    return health;
+}
+//------------------------------------
+void People::takeDamage(int damage)
+{
+    health -= damage;
+    
+    if(health <= 0)
+        setDead();
+}
+//------------------------------------
 
 /*
  *
  TUNNELMAN CLASS IMPLEMENTATION BELOW
  *
  */
-TunnelMan::TunnelMan(StudentWorld * world): 
-	Actor(TID_PLAYER, TUNNEL_MAN_START_X, TUNNEL_MAN_START_Y, right, world),
-num_squirts(DEFAULT_WATER_SQUIRTS), sonar_charges(DEFAULT_SONAR_CHARGES), gold_nuggets(DEFAULT_GOLD_NUGGETS), health(DEFAULT_HEALTH_TUNNELMAN)
+TunnelMan::TunnelMan(StudentWorld * world):
+    People(TID_PLAYER, START_X_TUNNELMAN, START_Y_TUNNELMAN, right, world, DEFAULT_HEALTH_TUNNELMAN),
+    num_squirts(DEFAULT_WATER_SQUIRTS), sonar_charges(DEFAULT_SONAR_CHARGES), gold_nuggets(DEFAULT_GOLD_NUGGETS)
 {
 }
 //------------------------------------------------------------------------------------
@@ -220,24 +252,13 @@ void TunnelMan::doSomething()
         }
     }
     
-    //Next, delete any ice at TunnelMan's current position
-    getWorld()->deleteIceAroundObject(getX(), getY());
+    //Next, delete any earth at TunnelMan's current position
+    getWorld()->deleteEarthAroundObject(getX(), getY());
 }
 //----------------------------
-void TunnelMan::annoy(size_t damage)
+void TunnelMan::annoy(int damage)
 {
-	if (damage >= health)
-	{
-		health = 0;
-		setDead();
-	}
-	else
-		health -= damage;
-}
-//------------------------------------------
-bool TunnelMan::canBeAnnoyed()
-{
-    return true;
+    takeDamage(damage);
 }
 //----------------------------
 void TunnelMan::incGoldNugs()
@@ -246,13 +267,7 @@ void TunnelMan::incGoldNugs()
 		++gold_nuggets;
 }
 //----------------------------
-void TunnelMan::decGoldNugs()
-{
-    if(gold_nuggets > 0)
-        --gold_nuggets;
-}
-//----------------------------
-size_t TunnelMan::getGoldNugs() 
+size_t TunnelMan::getGoldNugs() const
 {
 	return gold_nuggets;
 }
@@ -263,7 +278,7 @@ void TunnelMan::incSonarCharges()
 		++sonar_charges;
 }
 //----------------------------
-size_t TunnelMan::getSonarCharges() 
+size_t TunnelMan::getSonarCharges() const
 {
 	return sonar_charges;
 }
@@ -275,20 +290,9 @@ void TunnelMan::increaseNumSquirts()
 		num_squirts = 99;
 }
 //----------------------------
-void TunnelMan::decNumSquirts()
-{
-    if(num_squirts > 0)
-        --num_squirts;
-}
-//----------------------------
-size_t TunnelMan::getNumSquirts() 
+size_t TunnelMan::getNumSquirts() const
 {
 	return num_squirts;
-}
-//----------------------------
-size_t TunnelMan::getHealth() 
-{
-	return health;
 }
 //------------------------------------------
 
@@ -299,7 +303,7 @@ size_t TunnelMan::getHealth()
  */
 
 Squirt::Squirt(unsigned int x, unsigned int y, Direction startDirection, StudentWorld * world):
-Actor(TID_WATER_SPURT, x, y, startDirection, world, false, 1.0, 1), ticksAlive(0)
+Actor(TID_WATER_SPURT, x, y, startDirection, world, false, 1.0, DEPTH_SQUIRT), ticksAlive(0)
 {
 }
 //------------------------------------------
@@ -322,8 +326,8 @@ void Squirt::doSomething()
         return;
     }
 
-    ///Checking that there is no ice or boulders in the way
-    if(getWorld()->noIceBlocking(getX(), getY(), getDirection())
+    ///Checking that there is no earth or boulders in the way
+    if(getWorld()->noEarthBlocking(getX(), getY(), getDirection())
        && getWorld()->noBouldersBlocking(getX(), getY()))
     {
         //Tries to move. If successful, moves in its current direction.
@@ -344,7 +348,7 @@ void Squirt::doSomething()
 */
 
 Boulder::Boulder(unsigned int x, unsigned int y, StudentWorld * world):
-	Actor(TID_BOULDER, x, y, down, world, STANDARD_IMAGE_SIZE, 1), atRest(true), ticksWaiting(0)
+	Actor(TID_BOULDER, x, y, down, world, STANDARD_IMAGE_SIZE, DEPTH_BOULDER), atRest(true), ticksWaiting(0)
 {
 }
 
@@ -356,7 +360,7 @@ void Boulder::doSomething() //FIXME - implement
 
 	if(atRest) 
 	{
-		if (getWorld()->noIceBlocking(getX(), getY(), down))
+		if (getWorld()->noEarthBlocking(getX(), getY(), down))
 			atRest = false;
 	}
 	else 
@@ -377,7 +381,7 @@ void Boulder::doSomething() //FIXME - implement
 void Boulder::fall()
 {
 	getWorld()->checkForBoulderHits(getX(), getY());
-	if (getWorld()->noIceBlocking(getX(), getY(), down))
+	if (getWorld()->noEarthBlocking(getX(), getY(), down))
     {
         //Checking if it can move, and moving down if so.
 		if(!moveInDirection(down))
@@ -387,7 +391,7 @@ void Boulder::fall()
         setDead();
 }
 //------------------------------------------
-bool Boulder::isBoulder()
+bool Boulder::isBoulder() const
 {
     return true;
 }
@@ -399,23 +403,62 @@ PROTESTOR CLASS IMPLEMENTATION BELOW
 *
 */
 
-
-void Protester::doSomething() //FIXME - implement
-{}
-//------------------------------------------
-void Protester::annoy(size_t damage) //FIXME - implement
-{}
-//------------------------------------------
-void Protester::bribe() //FIXME - implement
-{}
-//------------------------------------------
-void Protester::leaveOilField() //FIXME - implement
-{}
-//------------------------------------------
-bool Protester::canBeAnnoyed()
+RegularProtester::RegularProtester(StudentWorld * world, int restingTicks, int imageID, int maxHealth):
+    People(imageID, START_X_PROTESTOR, START_Y_PROTESTOR, left, world, DEFAULT_HEALTH_PROTESTER),
+    leavingOilField(false), ticksBetweenMoves(restingTicks), ticksAlive(0)
 {
-    return true;
+    //numSquaresToMoveInCurrentDirection; FIXME - implement
 }
+//------------------------------------------
+void RegularProtester::doSomething() //FIXME - implement
+{
+    if(!isAlive())
+        return;
+    
+    //Checking that the proper amount of ticks have passed for the next action
+    if((ticksAlive % (ticksBetweenMoves + 1)) == 0)
+    {
+        ++ticksAlive;
+        return;
+    }
+    
+    if(leavingOilField)
+    {
+        leaveOilField(); //FIXME - implement
+    }
+    
+    if(getWorld()->canProteserShoutAtTunnelMan(getX(), getY(), getDirection()))
+    {
+        
+    }
+        
+    
+}
+//------------------------------------------
+void RegularProtester::annoy(int damage) //FIXME - implement
+{}
+//------------------------------------------
+void RegularProtester::bribe() //FIXME - implement
+{}
+//------------------------------------------
+void RegularProtester::leaveOilField() //FIXME - implement
+{}
+//------------------------------------------
+
+
+/*
+ *
+ HARDCORE PROTESTER CLASS IMPLEMENTATION BELOW
+ *
+ */
+
+HardcoreProtestor::HardcoreProtestor(StudentWorld * world, int maxTicks):
+RegularProtester(world, maxTicks, TID_HARD_CORE_PROTESTER, DEFAULT_HEALTH_HARDCORE)
+{
+}
+
+void HardcoreProtestor::doSomething(){}
+//------------------------------------------
 
 /*
  *
@@ -425,14 +468,10 @@ GOODIE CLASS IMPLEMENTATION BELOW
 
 
 Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay):
-    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, GOODIE_DEPTH, shouldDisplay),
+    Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, DEPTH_GOODIE, shouldDisplay),
 	scoreValue(score), soundToPlay(sound), ticksPassed(0), maxTickLife(maxTicks)
 {
 }
-//-----------------------------------------------------------
-void Goodie::annoy(size_t damage) {}
-//------------------------------------------
-void Goodie::bribe() {}
 //------------------------------------------
 bool Goodie::checkIfTunnelManPickedUp(const double & distanceFromTunnelMan)
 {
@@ -446,12 +485,12 @@ bool Goodie::checkIfTunnelManPickedUp(const double & distanceFromTunnelMan)
     return false;
 }
 //------------------------------------------
-int Goodie::getMaxTickLife() 
+int Goodie::getMaxTickLife() const
 {
 	return maxTickLife;
 }
 //------------------------------------------
-int Goodie::getTicksPassed() 
+int Goodie::getTicksPassed() const
 {
 	return ticksPassed;
 }

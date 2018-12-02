@@ -13,21 +13,22 @@ GameWorld* createStudentWorld(string assetDir)
 	return new StudentWorld(assetDir);
 }
 //---------------------------------------------------------------
-StudentWorld::StudentWorld(std::string assetDir): GameWorld(assetDir)
+StudentWorld::StudentWorld(std::string assetDir): GameWorld(assetDir), ticksSinceLastProtesterWasAdded(0)
 {
 }
 //---------------------------------------------------------------
 StudentWorld::~StudentWorld()
 {
-    destroyIceField();  //De-initializes all ice objects
+    destroyEarthField();  //De-initializes all earth objects
 	player.reset();
 }
 //---------------------------------------------------------------
 int StudentWorld::init()
 {
-	makeIceField();
+	makeEarthField();
 	player = std::unique_ptr<TunnelMan>(new TunnelMan(this));
 	distributeBarrelsGoldAndBoulders();
+    
 	return GWSTATUS_CONTINUE_GAME;
 }
 //---------------------------------------------------------------
@@ -36,9 +37,10 @@ int StudentWorld::move()
     while(player->isAlive())
     {
         setDisplayText();
-        generateGoodies();
         askPlayerAndObjectsToDoSomething();
         destroyDeadObjects();
+        generateGoodies();
+        generateProtesters();
 
         if (barrelCount == 0)
             return GWSTATUS_FINISHED_LEVEL;
@@ -53,7 +55,7 @@ int StudentWorld::move()
 //---------------------------------------------------------------
 void StudentWorld::cleanUp()
 {
-	destroyIceField();  //De-initializes all ice objects
+	destroyEarthField();  //De-initializes all earth objects
 	player.reset();
     gameObjects.clear();
 }
@@ -72,15 +74,15 @@ void StudentWorld::setDisplayText()
 	setGameStatText(gameText.str());
 }
 //---------------------------------------------------------------
-void StudentWorld::makeIceField()
+void StudentWorld::makeEarthField()
 {
     for(int i = 0; i < VIEW_WIDTH; ++i)
     {
-        for(int j = 0; j < VIEW_HEIGHT - IMAGE_OFFSET; ++j)
+        for(int j = 0; j < VIEW_HEIGHT - SPRITE_WIDTH; ++j)
         {
             if(!(i >= SHAFT_LEFT_COORD && i <= SHAFT_RIGHT_COORD && j >= SHAFT_BOTTOM_COORD)) //Making sure to skip the vertical shaft in the middle
             {
-                iceField[i][j] = std::unique_ptr<Ice>(new Ice(i,j));
+                earthField[i][j] = std::unique_ptr<Earth>(new Earth(i,j));
             }
         }
     }
@@ -91,32 +93,32 @@ void StudentWorld::decBarrels()
 	--barrelCount;
 }
 //---------------------------------------------------------------
-void StudentWorld::deleteIceAroundObject(unsigned int xCord, unsigned int yCord)
+void StudentWorld::deleteEarthAroundObject(unsigned int xCord, unsigned int yCord)
 {
     int newX;   //Will store the x-Coordinates in TunnelMan's 4x4 image
     int newY;   //Will store the y-Coordinates in TunnelMan's 4x4 image
     
-    for(int i = 0; i < IMAGE_OFFSET; ++i)   //Iterating through x coordinates of image
+    for(int i = 0; i < SPRITE_WIDTH; ++i)   //Iterating through x coordinates of image
     {
-        for(int j = 0; j < IMAGE_OFFSET; ++j)   //Iterating through y coordinates of image
+        for(int j = 0; j < SPRITE_WIDTH; ++j)   //Iterating through y coordinates of image
         {
             newX = xCord + i;
             newY = yCord + j;
             
             //Validating that coordinate is in bounds
-            if(newX < VIEW_WIDTH && newY < VIEW_HEIGHT - IMAGE_OFFSET)
-                iceField[newX][newY].reset();     //Frees unique pointer and deletes ice at that point
+            if(newX < VIEW_WIDTH && newY < VIEW_HEIGHT - SPRITE_WIDTH)
+                earthField[newX][newY].reset();     //Frees unique pointer and deletes earth at that point
         }
     }
 }
 //---------------------------------------------------------------
-void StudentWorld::destroyIceField()
+void StudentWorld::destroyEarthField()
 {
     for(int i = 0; i < VIEW_WIDTH; ++i)
     {
-        for(int j = 0; j < VIEW_HEIGHT - IMAGE_OFFSET; ++j)
+        for(int j = 0; j < VIEW_HEIGHT; ++j)
         {
-            iceField[i][j].reset();   //Frees unique pointer and deletes ice at that point
+            earthField[i][j].reset();   //Frees unique pointer and deletes earth at that point
         }
     }
 }
@@ -141,17 +143,17 @@ bool StudentWorld::areaIsClearOfObjects(unsigned int x, unsigned int y)
 	return true;	//No objects within 6 units were found and object can be built
 }
 //---------------------------------------------------------------
-bool StudentWorld::areaIsClearOfIce(unsigned int x, unsigned int y) 
+bool StudentWorld::areaIsClearOfEarth(unsigned int x, unsigned int y)
 {
-	for (size_t i = x; i < x + 4; ++i)
+	for (size_t i = x; i < x + SPRITE_WIDTH; ++i)
 	{
-		for (size_t j = y; j < y + 4; ++j)
+		for (size_t j = y; j < y + SPRITE_WIDTH; ++j)
 		{
-			if (iceField[i][j] != nullptr) //Checking if there is ice at that point
-				return false;
+			if (earthField[i][j]) //Checking if there is earth at that point
+				return false;   //Earth was found, blocking the object from moving
 		}
 	}
-	return true;
+	return true;    //No earth was found. Object is free to move
 }
 //---------------------------------------------------------------
 bool StudentWorld::noBouldersBlocking(unsigned int x, unsigned int y)
@@ -162,7 +164,7 @@ bool StudentWorld::noBouldersBlocking(unsigned int x, unsigned int y)
         if((*it)->isBoulder())
         {
             distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
-            if(distance <= 3.0)
+            if(distance <= MIN_INTERACT_DIST)
                 return false;   //Player would be touching boulder if it moved here
         }
     }
@@ -184,7 +186,7 @@ void StudentWorld::generateObjects(int numObjects, int typeOfObject)
     {
         generateRandomCoordinates(xCoord, yCoord, isBoulder);
         
-        while (!areaIsClearOfObjects(xCoord, yCoord) || ((xCoord > SHAFT_LEFT_COORD - IMAGE_OFFSET) &&
+        while (!areaIsClearOfObjects(xCoord, yCoord) || ((xCoord > SHAFT_LEFT_COORD - SPRITE_WIDTH) &&
                 (xCoord <= SHAFT_RIGHT_COORD) && (yCoord > 0)))
         {
             //Generate new coordinates because area was not clear or area overlapped vertical shaft
@@ -206,13 +208,18 @@ void StudentWorld::generateObjects(int numObjects, int typeOfObject)
             case GENERATE_BOULDER:
             {
                 gameObjects.push_back(std::unique_ptr<Actor>(new Boulder(xCoord, yCoord, this)));
-                deleteIceAroundObject(xCoord, yCoord);
+                deleteEarthAroundObject(xCoord, yCoord);
                 break;
             }
         }
     }
 }
-
+//---------------------------------------------------------------
+void StudentWorld::generateProtesters()
+{
+    
+}
+//---------------------------------------------------------------
 void StudentWorld::distributeBarrelsGoldAndBoulders()
 {
 	//barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
@@ -236,7 +243,7 @@ void StudentWorld::generateRandomCoordinates(int & xCoord, int & yCoord, bool is
     if(isBoulder)
         yCoord = rand() % (37) + MIN_BOULDER_HEIGHT; //y coordinate 20-56 inclusive
     else
-        yCoord = rand() % (MAX_COORDINATE - IMAGE_OFFSET + 1); //y coordinate 0-56 inclusive
+        yCoord = rand() % (MAX_COORDINATE - SPRITE_WIDTH + 1); //y coordinate 0-56 inclusive
 }
 //---------------------------------------------------------------
 void StudentWorld::generateGoodies() 
@@ -258,8 +265,8 @@ void StudentWorld::generateGoodies()
             int yCoord;
             generateRandomCoordinates(xCoord, yCoord, false);
 
-			//Generate new random coordinates until the area is clear of ice and objects
-			while (!areaIsClearOfIce(xCoord, yCoord) || !areaIsClearOfObjects(xCoord, yCoord)) 
+			//Generate new random coordinates until the area is clear of earth and objects
+			while (!areaIsClearOfEarth(xCoord, yCoord) || !areaIsClearOfObjects(xCoord, yCoord))
 			{
                 generateRandomCoordinates(xCoord, yCoord, false);
 			}
@@ -271,6 +278,86 @@ void StudentWorld::generateGoodies()
 double StudentWorld::getTunnelManDistance(unsigned int x, unsigned int y) 
 {
 	return calculateEuclidianDistance(x, y, player->getX(), player->getY());
+}
+//---------------------------------------------------------------
+bool StudentWorld::canProteserShoutAtTunnelMan(unsigned int x, unsigned int y, GraphObject::Direction d)
+{
+    int newX = x;
+    int newY = y;
+    
+    if(calculateEuclidianDistance(x, y, player->getX(), player->getY()) <= 4.0)
+        return false;   //Protester is too far
+    
+    if(!shiftCoordinates(newX, newY, d))
+        return false;   //Protester is facing out of bounds
+    
+    /*
+     Iterating through shifted coordinates. If TunnelMan is within
+     the 16x16 grid that an object could occupy with these coordinates,
+     then the protester is facing him.
+     */
+    for(int i = newX; i < SPRITE_WIDTH; ++i)
+    {
+        for(int j = newY; j < SPRITE_HEIGHT; ++i)
+        {
+            if(newX == player->getX() && newY == player->getY())
+                return true;
+        }
+    }
+    
+    return false;
+}
+//---------------------------------------------------------------
+void StudentWorld::shoutAtTunnelMan()
+{
+    player->annoy(DAMAGE_PROTESTER_SHOUT);
+    playSound(SOUND_PROTESTER_YELL);
+}
+//---------------------------------------------------------------
+bool StudentWorld::shiftCoordinates(int &x, int &y, GraphObject::Direction d)
+{
+    switch(d)
+    {
+        case GraphObject::down:
+        {
+            y -= 1;
+            
+            if(y < 0)
+                return false;
+            
+            break;
+        }
+        case GraphObject::up:
+        {
+            y += 1;
+            
+            if(y > MAX_COORDINATE)
+                return false;
+            
+            break;
+        }
+        case GraphObject::left:
+        {
+            x -= 1;
+            
+            if(x < 0)
+                return false;
+            
+            break;
+        }
+        case GraphObject::right:
+        {
+            x += 1;
+            
+            if(x > MAX_COORDINATE)
+                return false;
+            
+            break;
+        }
+        case GraphObject::none:
+            return false;
+    }
+    return true;
 }
 //---------------------------------------------------------------
 void StudentWorld::destroyDeadObjects() 
@@ -329,89 +416,16 @@ bool StudentWorld::checkForBribes(unsigned int x, unsigned int y)
 	return false;
 }
 //---------------------------------------------------------------
-
-//FIXME - consolidate into one function. Also squirt gun doesn't work on top of field
-bool StudentWorld::noIceBlocking(unsigned int x, unsigned int y, GraphObject::Direction d)
+bool StudentWorld::noEarthBlocking(unsigned int x, unsigned int y, GraphObject::Direction d)
 {
-    switch(d)
-    {
-        case GraphObject::down:
-        {
-            return noIceBlockingDown(x, y);
-        }
-        case GraphObject::up:
-        {
-            return noIceBlockingUp(x, y);
-        }
-        case GraphObject::left:
-        {
-            return noIceBlockingLeft(x, y);
-        }
-        case GraphObject::right:
-        {
-            return noIceBlockingRight(x, y);
-        }
-        case GraphObject::none:
-            return false;
-    }
-}
-//---------------------------------------------------------------
-/*
-If an object is moving left, then (x - 1, y) to (x - 1, y + 3)
-must be checked. x - 1 is constant
-If down, then (x, y - 1) to (x + 3, y - 1).  y - 1 is constant
- If an object is moving right, then (x + 1), y to (x + 1, y + 3)
- must be checked. x + 1 is constant
- If up, then (x, y + 1) to (x + 3, y + 1).  y + 1 is constant
- */
-bool StudentWorld::noIceBlockingLeft(int x, int y)
-{
-    if(x - 1 < 0)
-        return false;   //Object was heading out of bounds
+    int newX = x;
+    int newY = y;
     
-    for(int i = y; i < y + IMAGE_OFFSET; ++i)
-    {
-        if(iceField[x - 1][i] != nullptr)
-            return false;
-    }
-    return true;
-}
-//---------------------------------------------------------------
-bool StudentWorld::noIceBlockingRight(int x, int y)
-{
-    for(int i = y; i < y + IMAGE_OFFSET; ++i)
-    {
-        if(iceField[x + IMAGE_OFFSET][i] != nullptr)
-            return false;
-    }
-    return true;
-}
-//---------------------------------------------------------------
-bool StudentWorld::noIceBlockingUp(int x, int y)
-{
-    for(int i = x; i < x + IMAGE_OFFSET; ++i)
-    {
-        if(iceField[x][y + IMAGE_OFFSET] != nullptr)
-            return false;
-    }
-    return true;
-}
-//---------------------------------------------------------------
-bool StudentWorld::noIceBlockingDown(int x, int y)
-{
-    if(y - 1 < 0)
-        return false;   //Object was heading out of bounds
+    if(!shiftCoordinates(newX, newY, d))
+        return false;   //Coordinate shifting failed because of bounds
     
-    for(int i = x; i < x + IMAGE_OFFSET; ++i)
-    {
-        if(iceField[i][y - 1] != nullptr)
-            return false;
-    }
-    return true;
+    return areaIsClearOfEarth(newX, newY);
 }
-//---------------------------------------------------------------
-
-
 //---------------------------------------------------------------
 void StudentWorld::checkForBoulderHits(unsigned int x, unsigned int y) 
 {
