@@ -95,7 +95,10 @@ bool Actor::isBoulder() const
     return false;
 }
 //------------------------------------------
-void Actor::bribe() {}  //To be overrided by necessary classes
+bool Actor::bribe()
+{
+    return false;
+}  //To be overrided by necessary classes
 //------------------------------------------
 void Actor::annoy(int damage) {}  //To be overrided by necessary classes
 //------------------------------------------
@@ -143,9 +146,6 @@ int People::getHealth() const
 void People::takeDamage(int damage)
 {
     health -= damage;
-    
-    if(health <= 0)
-        setDead();
 }
 //------------------------------------
 
@@ -177,7 +177,7 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == left)
                 {
-                    if(getWorld()->noBouldersBlocking(getX() - 1, getY()))
+                    if(getWorld()->noBouldersBlocking(getX(), getY(), left))
                         moveInDirection(left);
                 }
                 else
@@ -189,7 +189,7 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == right)
                 {
-                    if(getWorld()->noBouldersBlocking(getX() + 1, getY()))
+                    if(getWorld()->noBouldersBlocking(getX(), getY(), right))
                         moveInDirection(right);
                 }
                 else
@@ -201,7 +201,7 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == up)
                 {
-                    if(getWorld()->noBouldersBlocking(getX(), getY() + 1))
+                    if(getWorld()->noBouldersBlocking(getX(), getY(), up))
                         moveInDirection(up);
                 }
                 else
@@ -213,7 +213,7 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == down)
                 {
-                    if(getWorld()->noBouldersBlocking(getX(), getY() - 1))
+                    if(getWorld()->noBouldersBlocking(getX(), getY(), down))
                         moveInDirection(down);
                 }
                 else
@@ -259,6 +259,9 @@ void TunnelMan::doSomething()
 void TunnelMan::annoy(int damage)
 {
     takeDamage(damage);
+    
+    if(getHealth() <= 0)
+        setDead();
 }
 //----------------------------
 void TunnelMan::incGoldNugs()
@@ -328,14 +331,14 @@ void Squirt::doSomething()
 
     ///Checking that there is no earth or boulders in the way
     if(getWorld()->noEarthBlocking(getX(), getY(), getDirection())
-       && getWorld()->noBouldersBlocking(getX(), getY()))
+       && getWorld()->noBouldersBlocking(getX(), getY(), getDirection()))
     {
         //Tries to move. If successful, moves in its current direction.
         if(!moveInDirection(getDirection()))
             setDead();  //Movement failed because it went out of bounds
     }
     else
-        setDead();
+        setDead();  //Squirt hit boulder or Earth
     
     ++ticksAlive;
 }
@@ -403,11 +406,15 @@ PROTESTOR CLASS IMPLEMENTATION BELOW
 *
 */
 
-RegularProtester::RegularProtester(StudentWorld * world, int restingTicks, int imageID, int maxHealth):
+RegularProtester::RegularProtester(StudentWorld * world, int level, int imageID, int maxHealth):
     People(imageID, START_X_PROTESTOR, START_Y_PROTESTOR, left, world, DEFAULT_HEALTH_PROTESTER),
-    leavingOilField(false), ticksBetweenMoves(restingTicks), ticksAlive(0)
+    leavingOilField(false), currentRestingTicks(0), levelNumber(level), stunned(false), totalNonRestingTicks(0)
 {
-    //numSquaresToMoveInCurrentDirection; FIXME - implement
+    ticksBetweenMoves = MAX(0, 3 - levelNumber / 4);
+    setNumSquaresToMoveInCurrentDirection();
+    
+    //This is set to -15 so that it can immediately shout at tunnelman once created
+    nonRestingTickShoutedAt = -TICKS_BETWEEN_SHOUTS;
 }
 //------------------------------------------
 void RegularProtester::doSomething() //FIXME - implement
@@ -416,35 +423,167 @@ void RegularProtester::doSomething() //FIXME - implement
         return;
     
     //Checking that the proper amount of ticks have passed for the next action
-    if((ticksAlive % (ticksBetweenMoves + 1)) == 0)
+    //Does something every (ticksBetweenMoves + 1) ticks
+    if(currentRestingTicks < ticksBetweenMoves)
     {
-        ++ticksAlive;
+        ++currentRestingTicks;
         return;
+    }
+
+    if(stunned)
+    {
+        //Resetting how long the protester has to wait because it's not stunned anymore
+        ticksBetweenMoves = MAX(0, 3 - levelNumber / 4);
+        stunned = false;
     }
     
     if(leavingOilField)
     {
         leaveOilField(); //FIXME - implement
     }
-    
-    if(getWorld()->canProteserShoutAtTunnelMan(getX(), getY(), getDirection()))
+    else if(getWorld()->canProteserShoutAtTunnelMan(getX(), getY(), getDirection()))
     {
-        
+        //Checking that it has been at least 15 ticks since a shout occurred
+        if(totalNonRestingTicks - nonRestingTickShoutedAt >= TICKS_BETWEEN_SHOUTS)
+        {
+            getWorld()->shoutAtTunnelMan();
+            nonRestingTickShoutedAt = totalNonRestingTicks;
+        }
     }
-        
+    else if(getWorld()->tunnelManIsInStraightLineOfSight(getX(), getY()))
+    {
+        return; //FIXME - implement
+    }
     
+    --numSquaresToMoveInCurrentDirection;
+    
+    if(numSquaresToMoveInCurrentDirection == 0)
+    {
+        pickRandomDirection();
+        
+        //Checking that the new direction doesn't have any earth or boulders blocking
+        while(!getWorld()->noEarthBlocking(getX(), getY(), getDirection()) ||
+              !getWorld()->noBouldersBlocking(getX(), getY(), getDirection()))
+        {
+            pickRandomDirection(); //Generating a new direction due to blocking
+        }
+        
+        setNumSquaresToMoveInCurrentDirection();
+    }
+    else
+    {
+        //checkIfProtesterIsAtIntersection; //FIXME - implement
+    }
+    
+    tryToMove();
+    
+    //Resetting the number of resting ticks and increasing
+    //number of non-resting ticks because an action was performed.
+    currentRestingTicks = 0;
+    ++totalNonRestingTicks;
+}
+//------------------------------------------
+void RegularProtester::tryToMove()
+{
+    if(getWorld()->noBouldersBlocking(getX(), getY(), getDirection())
+       && getWorld()->noEarthBlocking(getX(), getY(), getDirection()))
+    {
+        //If function call is successful, protester will move. Otherwise it will not.
+        if(!moveInDirection(getDirection()))
+            numSquaresToMoveInCurrentDirection = 0;
+    }
+    else
+        numSquaresToMoveInCurrentDirection = 0;
 }
 //------------------------------------------
 void RegularProtester::annoy(int damage) //FIXME - implement
-{}
+{
+    //Checking that the protester is not already leaving the oil field
+    if(!leavingOilField)
+    {
+        takeDamage(damage);
+        if(getHealth() <= 0)
+        {
+            getWorld()->playSound(SOUND_PROTESTER_GIVE_UP);
+            
+            if(damage == DAMAGE_SQUIRT_GUN)
+                getWorld()->increaseScore(SCORE_PROTESTER_SQUIRTED);
+            else
+                getWorld()->increaseScore(SCORE_PROTESTER_BONKED);
+            
+            leavingOilField = true;
+            currentRestingTicks = ticksBetweenMoves; //Allowing protester to move immediately
+        }
+        else
+        {
+            getWorld()->playSound(SOUND_PROTESTER_ANNOYED);
+            stunned = true;
+            ticksBetweenMoves = MAX(50, 100 - levelNumber * 10);
+        }
+    }
+}
 //------------------------------------------
-void RegularProtester::bribe() //FIXME - implement
-{}
+bool RegularProtester::bribe() //FIXME - not working properly when protester is annoyed
+{
+    if(!leavingOilField)
+    {
+        leavingOilField = true;
+        getWorld()->playSound(SOUND_PROTESTER_FOUND_GOLD);
+        getWorld()->increaseScore(SCORE_BRIBE_GOLD);
+        return true;
+    }
+    return false;
+}
 //------------------------------------------
 void RegularProtester::leaveOilField() //FIXME - implement
-{}
+{
+    if(getX() == MAX_COORDINATE && getY() == MAX_COORDINATE)
+    {
+        setDead();
+        getWorld()->decNumberOfProtesters();
+        return;
+    }
+    
+    else if(true) //FIXME - implement
+    {
+        return;
+    }
+}
 //------------------------------------------
-
+void RegularProtester::setNumSquaresToMoveInCurrentDirection()
+{
+    //Generates a random number between 8 and 60, inclusive
+    numSquaresToMoveInCurrentDirection = (rand() % 53) + 8;
+}
+//------------------------------------------
+void RegularProtester::pickRandomDirection()
+{
+    int choice = rand() % 4;
+    switch(choice)
+    {
+        case 0:
+        {
+            setDirection(up);
+            break;
+        }
+        case 1:
+        {
+            setDirection(right);
+            break;
+        }
+        case 2:
+        {
+            setDirection(down);
+            break;
+        }
+        case 3:
+        {
+            setDirection(left);
+            break;
+        }
+    }
+}
+//------------------------------------------
 
 /*
  *
@@ -452,8 +591,8 @@ void RegularProtester::leaveOilField() //FIXME - implement
  *
  */
 
-HardcoreProtestor::HardcoreProtestor(StudentWorld * world, int maxTicks):
-RegularProtester(world, maxTicks, TID_HARD_CORE_PROTESTER, DEFAULT_HEALTH_HARDCORE)
+HardcoreProtestor::HardcoreProtestor(StudentWorld * world, int levelNumber):
+RegularProtester(world, levelNumber, TID_HARD_CORE_PROTESTER, DEFAULT_HEALTH_HARDCORE)
 {
 }
 

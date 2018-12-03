@@ -13,7 +13,8 @@ GameWorld* createStudentWorld(string assetDir)
 	return new StudentWorld(assetDir);
 }
 //---------------------------------------------------------------
-StudentWorld::StudentWorld(std::string assetDir): GameWorld(assetDir), ticksSinceLastProtesterWasAdded(0)
+StudentWorld::StudentWorld(std::string assetDir): GameWorld(assetDir),
+    currentTick(0), numberOfProtesters(0)
 {
 }
 //---------------------------------------------------------------
@@ -28,6 +29,9 @@ int StudentWorld::init()
 	makeEarthField();
 	player = std::unique_ptr<TunnelMan>(new TunnelMan(this));
 	distributeBarrelsGoldAndBoulders();
+    ticksBetweenProtesters = MAX(25, 200 - getLevel());
+    targetNumberOfProtesters = MIN(15, 2 + getLevel() * 1.5);
+    currentTick = 0;
     
 	return GWSTATUS_CONTINUE_GAME;
 }
@@ -41,6 +45,7 @@ int StudentWorld::move()
         destroyDeadObjects();
         generateGoodies();
         generateProtesters();
+        ++currentTick;
 
         if (barrelCount == 0)
             return GWSTATUS_FINISHED_LEVEL;
@@ -58,6 +63,7 @@ void StudentWorld::cleanUp()
 	destroyEarthField();  //De-initializes all earth objects
 	player.reset();
     gameObjects.clear();
+    numberOfProtesters = 0;
 }
 //---------------------------------------------------------------
 void StudentWorld::setDisplayText() 
@@ -65,7 +71,7 @@ void StudentWorld::setDisplayText()
 	stringstream gameText;
 	gameText << "Lvl: " << setw(2) << getLevel() << " "
 		<< "Lives: " << getLives() << " "
-		<< "Hlth: " << setw(2) << player->getHealth() << "% "
+		<< "Hlth: " << setw(3) << player->getHealth() * 10 << "% "
 		<< "Wtr: " << setw(2) << player->getNumSquirts() << " "
 		<< "Gld: " << setw(2) << player->getGoldNugs() << " "
 		<< "Oil Left: " << setw(2) << this->barrelCount << " "
@@ -91,6 +97,11 @@ void StudentWorld::makeEarthField()
 void StudentWorld::decBarrels() 
 {
 	--barrelCount;
+}
+//---------------------------------------------------------------
+void StudentWorld::decNumberOfProtesters()
+{
+    --numberOfProtesters;
 }
 //---------------------------------------------------------------
 void StudentWorld::deleteEarthAroundObject(unsigned int xCord, unsigned int yCord)
@@ -156,16 +167,22 @@ bool StudentWorld::areaIsClearOfEarth(unsigned int x, unsigned int y)
 	return true;    //No earth was found. Object is free to move
 }
 //---------------------------------------------------------------
-bool StudentWorld::noBouldersBlocking(unsigned int x, unsigned int y)
+bool StudentWorld::noBouldersBlocking(unsigned int x, unsigned int y, GraphObject::Direction d)
 {
+    int newX = x;
+    int newY = y;
+    
+    if(!shiftCoordinates(newX, newY, d))
+        return false;   //Coordinate shifting failed because of bounds
+    
     double distance;
     for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
     {
         if((*it)->isBoulder())
         {
-            distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+            distance = calculateEuclidianDistance(newX, newY, (*it)->getX(), (*it)->getY());
             if(distance <= MIN_INTERACT_DIST)
-                return false;   //Player would be touching boulder if it moved here
+                return false;   //Object would be touching boulder if it moved here
         }
     }
     return true;    //Area is clear of boulders
@@ -217,18 +234,32 @@ void StudentWorld::generateObjects(int numObjects, int typeOfObject)
 //---------------------------------------------------------------
 void StudentWorld::generateProtesters()
 {
+    if(numberOfProtesters == targetNumberOfProtesters)
+        return; //There are already enough protesters on the field
+    
+    //Checking if this is the initial tick or if enough ticks have passed for a new protester
+    if(currentTick == 0 || currentTick % ticksBetweenProtesters == 0)
+    {
+        int probabilityOfHardcore = MIN(90, getLevel() * 10 + 30);
+        int chanceOfHardcore = rand() % probabilityOfHardcore;
+        
+        //1 in probabilityOfHardcore chance that protester will be hardcore
+        if(chanceOfHardcore == 0)
+            gameObjects.push_back(std::unique_ptr<Actor>(new HardcoreProtestor(this, getLevel())));
+        else
+            gameObjects.push_back(std::unique_ptr<Actor>(new RegularProtester(this, getLevel())));
+        
+        ++numberOfProtesters;
+    }
+    
     
 }
 //---------------------------------------------------------------
 void StudentWorld::distributeBarrelsGoldAndBoulders()
 {
-	//barrelCount = std::min(static_cast<int>(2 + getLevel()), 21);  //FIXME - change to lambda function?
-    //int goldCount = std::max(5 - getLevel() / 2, 2); FIXME - implement this
-    //int Boulders = min(current_level_number / 2 + 2, 9)
-	this->barrelCount = 25; //FIXME - for testing only
-    int goldCount = 10
-    ; //FIXME - for testing only
-    int boulderCount = 9; //FIXME - for testing only
+	barrelCount = MIN((2 + getLevel()), 21);  //FIXME - change to lambda function?
+    int goldCount = MAX(5 - getLevel() / 2, 2);
+    int boulderCount = MIN(getLevel() / 2 + 2, 9);
     
     generateObjects(barrelCount, GENERATE_OIL);
     generateObjects(goldCount, GENERATE_GOLD);
@@ -248,14 +279,14 @@ void StudentWorld::generateRandomCoordinates(int & xCoord, int & yCoord, bool is
 //---------------------------------------------------------------
 void StudentWorld::generateGoodies() 
 {
-	int tickLife = 100; //For testing - FIXME later
-	//int tickLife = max(100, 300 – 10 * getLevel()) 
-	//int G = (getLevel() * 25) + 300;
-    int G = 100; //FIXME - testing only
-	if (rand() % G == 0) //1 in G chance new goodie is made
+    int tickLife = MAX(100, 300 - 10 * getLevel());
+	int goodieChance = (getLevel() * 25) + 300;
+    
+	if (rand() % goodieChance == 0) //1 in G chance new goodie is made
 	{
-		int P = rand() % 5; //1 in 5 chance sonar is made
-		if (P == 0)	//Generate a sonar
+		int sonarChance = rand() % 5; //1 in 5 chance sonar is made
+        
+		if (sonarChance == 0)	//Generate a sonar
 		{
 			gameObjects.push_back(std::unique_ptr<Actor>(new Sonar(0, MAX_COORDINATE, this, tickLife)));
 		}
@@ -285,9 +316,10 @@ bool StudentWorld::canProteserShoutAtTunnelMan(unsigned int x, unsigned int y, G
     int newX = x;
     int newY = y;
     
-    if(calculateEuclidianDistance(x, y, player->getX(), player->getY()) <= 4.0)
+    if(calculateEuclidianDistance(x, y, player->getX(), player->getY()) > 4.0)
         return false;   //Protester is too far
     
+    //Shifting x or y coordinate over 1 depending on direction protester is facing
     if(!shiftCoordinates(newX, newY, d))
         return false;   //Protester is facing out of bounds
     
@@ -296,16 +328,21 @@ bool StudentWorld::canProteserShoutAtTunnelMan(unsigned int x, unsigned int y, G
      the 16x16 grid that an object could occupy with these coordinates,
      then the protester is facing him.
      */
-    for(int i = newX; i < SPRITE_WIDTH; ++i)
+    for(int i = newX; i < newX + SPRITE_WIDTH; ++i)
     {
-        for(int j = newY; j < SPRITE_HEIGHT; ++i)
+        for(int j = newY; j < newY + SPRITE_HEIGHT; ++j)
         {
-            if(newX == player->getX() && newY == player->getY())
+            if(i == player->getX() && j == player->getY())
                 return true;
         }
     }
     
     return false;
+}
+//---------------------------------------------------------------
+bool StudentWorld::tunnelManIsInStraightLineOfSight(unsigned int x, unsigned int y)
+{
+    return false; //FIXME - implement function
 }
 //---------------------------------------------------------------
 void StudentWorld::shoutAtTunnelMan()
@@ -409,8 +446,8 @@ bool StudentWorld::checkForBribes(unsigned int x, unsigned int y)
         //the gameobjects list, only protestors can pass this if statement and be bribed
 		if (distance <= PICKUP_DISTANCE && (*it)->canBeAnnoyed())
 		{
-			(*it)->bribe();
-			return true;
+			if((*it)->bribe())
+                return true;
 		}
 	}
 	return false;

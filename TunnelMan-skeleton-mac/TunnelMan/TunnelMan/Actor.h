@@ -18,6 +18,7 @@
 #define GOLD_LIFETIME				(100)
 #define MAX_TICKS_BOULDER_WAITING	(30)
 #define SQUIRT_LIFETIME             (4)
+#define TICKS_BETWEEN_SHOUTS        (15)
 
 #define DAMAGE_BOULDER              (10)
 #define DAMAGE_SQUIRT_GUN           (2)
@@ -43,6 +44,8 @@
 #define SCORE_BRIBE_GOLD            (25)
 #define SCORE_SONAR					(75)
 #define SCORE_WATER_POOL			(100)
+#define SCORE_PROTESTER_BONKED      (500)
+#define SCORE_PROTESTER_SQUIRTED    (100)
 
 
 #define ADD_GOLD_NUGGET				(1)
@@ -75,7 +78,7 @@ public:
 
     virtual void doSomething() = 0;
 	virtual void annoy(int damage);
-	virtual void bribe();
+	virtual bool bribe();
     
     virtual bool canBeAnnoyed() const;
     virtual bool isBoulder() const;
@@ -189,15 +192,25 @@ private:
     bool leavingOilField;
     bool atRest;
     int ticksBetweenMoves;
-    int ticksAlive; //How many ticks the object has existed for
+    int currentRestingTicks;   //Number of ticks since last movement
+    int nonRestingTickShoutedAt;
+    int totalNonRestingTicks;  //Stores total number of non-resting ticks
+    int levelNumber;
+    int numSquaresToMoveInCurrentDirection;
+    bool stunned;
+    
+    void pickRandomDirection();
+    void tryToMove();
+    
     
     
 public:
-    RegularProtester(StudentWorld * world, int restingTicks, int imageID = TID_PROTESTER, int maxHealth = DEFAULT_HEALTH_PROTESTER);
+    RegularProtester(StudentWorld * world, int level, int imageID = TID_PROTESTER, int maxHealth = DEFAULT_HEALTH_PROTESTER);
 	virtual void doSomething() override;
 	void annoy(int damage) override;
-	void bribe() override;
+	bool bribe() override;
 	void leaveOilField();
+    void setNumSquaresToMoveInCurrentDirection();
 };
 
 //------------------------------------------
@@ -205,7 +218,7 @@ public:
 class HardcoreProtestor : public RegularProtester
 {
 public:
-    HardcoreProtestor(StudentWorld * world, int restingTicks);
+    HardcoreProtestor(StudentWorld * world, int levelNumber);
     void doSomething() override;
 };
 
