@@ -10,7 +10,7 @@
  *
  */
 
-Actor::Actor(int imageID, unsigned int startX, unsigned int startY, Direction startDirection, StudentWorld * ptr, double size, int depth, bool shouldDisplay):
+Actor::Actor(int imageID, int startX, int startY, Direction startDirection, StudentWorld * ptr, double size, int depth, bool shouldDisplay):
 	GraphObject(imageID, startX, startY, startDirection, size, depth), stillAlive(true), world(ptr)
 {
     setVisible(shouldDisplay);
@@ -109,7 +109,7 @@ void Actor::annoy(int damage) {}  //To be overrided by necessary classes
  *
  */
 
-Earth::Earth(unsigned int startX, unsigned int startY):
+Earth::Earth(int startX, int startY):
 	Actor(TID_EARTH, startX, startY, right, nullptr, EARTH_SIZE, DEPTH_EARTH)
 {
 }
@@ -120,6 +120,110 @@ void Earth::doSomething() //Earth does nothing
 }
 //------------------------------------------------------------------------------------
 
+/*
+ *
+ * BOULDER CLASS IMPLEMENTATION BELOW
+ *
+ */
+
+Boulder::Boulder(int x, int y, StudentWorld * world):
+Actor(TID_BOULDER, x, y, down, world, STANDARD_IMAGE_SIZE, DEPTH_BOULDER), atRest(true), ticksWaiting(0)
+{
+}
+
+//------------------------------------------
+void Boulder::doSomething()
+{
+    if (!isAlive())
+        return;
+    
+    if(atRest)
+    {
+        if (getWorld()->noEarthBlocking(getX(), getY(), down))
+            atRest = false;
+    }
+    else
+    {
+        if (ticksWaiting >= MAX_TICKS_BOULDER_WAITING)
+        {
+            fall();
+            
+            //Playing the sound if this is the initial fall
+            if (ticksWaiting == MAX_TICKS_BOULDER_WAITING)
+                getWorld()->playSound(SOUND_FALLING_ROCK);
+        }
+        ++ticksWaiting;
+    }
+    
+}
+//------------------------------------------
+void Boulder::fall()
+{
+    getWorld()->checkForBoulderHits(getX(), getY());
+    
+    //Checking that there is no Earth blocking the rock from falling
+    if (getWorld()->noEarthBlocking(getX(), getY(), down))
+    {
+        //Checking if it can move, and moving down if so.
+        if(!moveInDirection(down))
+            setDead();  //Movement failed - rock reached the bottom.
+    }
+    else
+        setDead();  //Earth was blocking the rock
+}
+//------------------------------------------
+bool Boulder::isBoulder() const
+{
+    return true;
+}
+//------------------------------------------
+
+
+/*
+ *
+ * SQUIRT CLASS IMPLEMENTATION BELOW
+ *
+ */
+
+Squirt::Squirt(int x, int y, Direction startDirection, StudentWorld * world):
+Actor(TID_WATER_SPURT, x, y, startDirection, world, STANDARD_IMAGE_SIZE
+      , DEPTH_SQUIRT), ticksAlive(0)
+{
+}
+//------------------------------------------
+void Squirt::doSomething()
+{
+    if(!isAlive())
+        return;
+    
+    //Checking if the squirt has been alive for too long
+    if(ticksAlive == SQUIRT_LIFETIME)
+    {
+        setDead();
+        return;
+    }
+    
+    //Checking if the squirt hit anything. If it did, it will be destroyed.
+    if(getWorld()->checkForSquirtGunHits(getX(), getY()))
+    {
+        setDead();
+        return;
+    }
+    
+    ///Checking that there is no earth or boulders in the way
+    if(getWorld()->noEarthBlocking(getX(), getY(), getDirection())
+       && getWorld()->noBouldersBlocking(getX(), getY(), getDirection()))
+    {
+        //Tries to move. If successful, moves in its current direction.
+        if(!moveInDirection(getDirection()))
+            setDead();  //Movement failed because it went out of bounds
+    }
+    else
+        setDead();  //Squirt hit boulder or Earth
+    
+    ++ticksAlive;
+}
+//------------------------------------------
 
 
 /*
@@ -128,7 +232,7 @@ void Earth::doSomething() //Earth does nothing
  *
  */
 
-People::People(int imageID, unsigned int x, unsigned int y, Direction startDirection, StudentWorld * world, int maxHealth):
+People::People(int imageID, int x, int y, Direction startDirection, StudentWorld * world, int maxHealth):
 Actor(imageID, x, y, startDirection, world), health(maxHealth)
 {
 }
@@ -225,7 +329,7 @@ void TunnelMan::doSomething()
 			{
 				if (gold_nuggets > 0) 
 				{
-					getWorld()->dropGoldNug(getX(), getY());
+					getWorld()->dropGoldNug();
 					--gold_nuggets;
 				}
 				break;
@@ -242,8 +346,7 @@ void TunnelMan::doSomething()
 			case 'z':
 			{
 				if (sonar_charges > 0) 
-				{
-					getWorld()->playSound(SOUND_SONAR);
+                {
 					getWorld()->useSonar();
 					--sonar_charges;
 				}
@@ -266,7 +369,7 @@ void TunnelMan::annoy(int damage)
 //----------------------------
 void TunnelMan::incGoldNugs()
 {
-	if(gold_nuggets != 99)
+	if(gold_nuggets != MAX_ITEM_COUNT)
 		++gold_nuggets;
 }
 //----------------------------
@@ -277,7 +380,7 @@ size_t TunnelMan::getGoldNugs() const
 //----------------------------
 void TunnelMan::incSonarCharges()
 {
-	if(sonar_charges != 99)
+	if(sonar_charges != MAX_ITEM_COUNT)
 		++sonar_charges;
 }
 //----------------------------
@@ -289,8 +392,8 @@ size_t TunnelMan::getSonarCharges() const
 void TunnelMan::increaseNumSquirts()
 {
 	num_squirts += 5;
-	if (num_squirts > 99)
-		num_squirts = 99;
+	if (num_squirts > MAX_ITEM_COUNT)
+		num_squirts = MAX_ITEM_COUNT;
 }
 //----------------------------
 size_t TunnelMan::getNumSquirts() const
@@ -299,106 +402,6 @@ size_t TunnelMan::getNumSquirts() const
 }
 //------------------------------------------
 
-/*
- *
- * SQUIRT CLASS IMPLEMENTATION BELOW
- *
- */
-
-Squirt::Squirt(unsigned int x, unsigned int y, Direction startDirection, StudentWorld * world):
-Actor(TID_WATER_SPURT, x, y, startDirection, world, false, 1.0, DEPTH_SQUIRT), ticksAlive(0)
-{
-}
-//------------------------------------------
-void Squirt::doSomething()
-{
-    if(!isAlive())
-        return;
-    
-    //Checking if the squirt has been alive for too long
-    if(ticksAlive == SQUIRT_LIFETIME)
-    {
-        setDead();
-        return;
-    }
-    
-    //Checking if the squirt hit anything. If it did, it will be destroyed.
-    if(getWorld()->checkForSquirtGunHits(getX(), getY()))
-    {
-        setDead();
-        return;
-    }
-
-    ///Checking that there is no earth or boulders in the way
-    if(getWorld()->noEarthBlocking(getX(), getY(), getDirection())
-       && getWorld()->noBouldersBlocking(getX(), getY(), getDirection()))
-    {
-        //Tries to move. If successful, moves in its current direction.
-        if(!moveInDirection(getDirection()))
-            setDead();  //Movement failed because it went out of bounds
-    }
-    else
-        setDead();  //Squirt hit boulder or Earth
-    
-    ++ticksAlive;
-}
-//------------------------------------------
-
-/*
-*
-* BOULDER CLASS IMPLEMENTATION BELOW
-*
-*/
-
-Boulder::Boulder(unsigned int x, unsigned int y, StudentWorld * world):
-	Actor(TID_BOULDER, x, y, down, world, STANDARD_IMAGE_SIZE, DEPTH_BOULDER), atRest(true), ticksWaiting(0)
-{
-}
-
-//------------------------------------------
-void Boulder::doSomething() //FIXME - implement
-{
-	if (!isAlive())
-		return; 
-
-	if(atRest) 
-	{
-		if (getWorld()->noEarthBlocking(getX(), getY(), down))
-			atRest = false;
-	}
-	else 
-	{
-		if (ticksWaiting >= MAX_TICKS_BOULDER_WAITING)
-		{
-			fall();
-            
-            //Playing the sound if this is the initial fall
-            if (ticksWaiting == MAX_TICKS_BOULDER_WAITING)
-                getWorld()->playSound(SOUND_FALLING_ROCK);
-		}
-		++ticksWaiting;
-	}
-	
-}
-//------------------------------------------
-void Boulder::fall()
-{
-	getWorld()->checkForBoulderHits(getX(), getY());
-	if (getWorld()->noEarthBlocking(getX(), getY(), down))
-    {
-        //Checking if it can move, and moving down if so.
-		if(!moveInDirection(down))
-            setDead();  //Movement failed - rock reached the bottom. 
-    }
-    else
-        setDead();
-}
-//------------------------------------------
-bool Boulder::isBoulder() const
-{
-    return true;
-}
-//------------------------------------------
 
 /*
 *
@@ -523,7 +526,7 @@ void RegularProtester::annoy(int damage) //FIXME - implement
     }
 }
 //------------------------------------------
-bool RegularProtester::bribe() //FIXME - not working properly when protester is annoyed
+bool RegularProtester::bribe()
 {
     if(!leavingOilField)
     {
@@ -599,6 +602,9 @@ RegularProtester(world, levelNumber, TID_HARD_CORE_PROTESTER, DEFAULT_HEALTH_HAR
 void HardcoreProtestor::doSomething(){}
 //------------------------------------------
 
+
+
+
 /*
  *
 GOODIE CLASS IMPLEMENTATION BELOW
@@ -606,13 +612,13 @@ GOODIE CLASS IMPLEMENTATION BELOW
  */
 
 
-Goodie::Goodie(int imageID, unsigned int startX, unsigned int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay):
+Goodie::Goodie(int imageID, int startX, int startY, StudentWorld * worldPtr, int score, int sound, int maxTicks, bool shouldDisplay):
     Actor(imageID, startX, startY, right, worldPtr, STANDARD_IMAGE_SIZE, DEPTH_GOODIE, shouldDisplay),
 	scoreValue(score), soundToPlay(sound), ticksPassed(0), maxTickLife(maxTicks)
 {
 }
 //------------------------------------------
-bool Goodie::checkIfTunnelManPickedUp(const double & distanceFromTunnelMan)
+bool Goodie::checkIfTunnelManPickedUp(const double &distanceFromTunnelMan)
 {
     if(distanceFromTunnelMan <= PICKUP_DISTANCE)
     {
@@ -646,7 +652,7 @@ BARREL OF OIL CLASS IMPLEMENTATION BELOW
 *
 */
 
-BarrelOfOil::BarrelOfOil(unsigned int startX, unsigned int startY, StudentWorld * world): 
+BarrelOfOil::BarrelOfOil(int startX, int startY, StudentWorld * world):
 	Goodie(TID_BARREL, startX, startY, world, SCORE_OIL, SOUND_FOUND_OIL, 0, false)
 {
 }
@@ -676,7 +682,7 @@ void BarrelOfOil::doSomething()
  *
  */
 
-GoldNugget::GoldNugget(unsigned int startX, unsigned int startY, StudentWorld * world, bool shouldDisplay, bool canPickup): 
+GoldNugget::GoldNugget(int startX, int startY, StudentWorld * world, bool shouldDisplay, bool canPickup):
 	Goodie(TID_GOLD, startX, startY, world, SCORE_PICKUP_GOLD, SOUND_GOT_GOODIE, GOLD_LIFETIME, shouldDisplay),
 	canBePickedUpByTunnelMan(canPickup)
 {
@@ -734,7 +740,7 @@ void GoldNugget::checkIfProtestorPickedUp()
 *
 */
 
-WaterPool::WaterPool(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks): 
+WaterPool::WaterPool(int startX, int startY, StudentWorld * world, int maxTicks):
 	Goodie(TID_WATER_POOL, startX, startY, world, SCORE_WATER_POOL, SOUND_GOT_GOODIE, maxTicks, true)
 {	
 }
@@ -766,7 +772,7 @@ void WaterPool::doSomething()
 *
 */
 
-Sonar::Sonar(unsigned int startX, unsigned int startY, StudentWorld * world, int maxTicks):
+Sonar::Sonar(int startX, int startY, StudentWorld * world, int maxTicks):
 	Goodie(TID_SONAR, startX, startY, world, SCORE_SONAR, SOUND_GOT_GOODIE, maxTicks, true)
 {
 }
