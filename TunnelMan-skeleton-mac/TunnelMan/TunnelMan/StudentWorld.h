@@ -76,13 +76,13 @@ public:
      Determines if moving an object at x, y in the Direction specified by d would cause it
      to hit a boulder. Returns true if NO boulders would hit it, otherwise returns false.
     */
-    bool noBouldersBlocking(int x, int y, GraphObject::Direction d);
+    bool noBouldersBlocking(int x, int y, GraphObject::Direction d, Actor *object);
     
     /*
      Determines if moving an object at x, y in the Direction specified by d would cause it
      to hit Earth. Returns true if NO Earth would hit it, otherwise returns false.
      */
-    bool noEarthBlocking(int x, int y, GraphObject::Direction d); //FIXME - make more efficient
+    bool noEarthBlocking(int x, int y, GraphObject::Direction directionToCheck); //FIXME - make more efficient
     
     double getTunnelManDistance(int x, int y);    //Returns the distance between TunnelMan and an object at x, y
     
@@ -119,7 +119,7 @@ public:
      d == left, shifts x to x-1, etc. Returns true if move was successful and updates x or y
      by reference. Returns false and makes no changes if x or y would go out of bounds.
     */
-    bool shiftCoordinates(int &x, int &y, GraphObject::Direction d);
+    bool shiftCoordinates(int &x, int &y, int amountToShift, GraphObject::Direction directionToShift);
     
     //FUNCTIONS CALLED BY TUNNELMAN TO USE HIS ITEMS
     void useSonar();    //Activates the sonar object and makes gold/oil nearby visible

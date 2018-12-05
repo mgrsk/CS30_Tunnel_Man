@@ -156,9 +156,9 @@ bool StudentWorld::areaIsClearOfObjects(int x, int y)
 //---------------------------------------------------------------
 bool StudentWorld::areaIsClearOfEarth(int x, int y)
 {
-	for (size_t i = x; i < x + SPRITE_WIDTH; ++i)
+	for (int i = x; i < x + SPRITE_WIDTH; ++i)
 	{
-		for (size_t j = y; j < y + SPRITE_WIDTH; ++j)
+		for (int j = y; j < y + SPRITE_WIDTH; ++j)
 		{
 			if (earthField[i][j]) //Checking if there is earth at that point
 				return false;   //Earth was found, blocking the object from moving
@@ -167,20 +167,17 @@ bool StudentWorld::areaIsClearOfEarth(int x, int y)
 	return true;    //No earth was found. Object is free to move
 }
 //---------------------------------------------------------------
-bool StudentWorld::noBouldersBlocking(int x, int y, GraphObject::Direction d)
+bool StudentWorld::noBouldersBlocking(int x, int y, GraphObject::Direction d, Actor *object)
 {
-    int newX = x;
-    int newY = y;
-    
-    if(!shiftCoordinates(newX, newY, d))
+    if(!shiftCoordinates(x, y, 1, d))
         return false;   //Coordinate shifting failed because of bounds
     
     double distance;
     for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
     {
-        if((*it)->isBoulder())
+        if((*it)->isBoulder() && object != &(*it->get()))
         {
-            distance = calculateEuclidianDistance(newX, newY, (*it)->getX(), (*it)->getY());
+            distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
             if(distance <= MIN_INTERACT_DIST)
                 return false;   //Object would be touching boulder if it moved here
         }
@@ -199,7 +196,7 @@ void StudentWorld::generateObjects(int numObjects, int typeOfObject)
     else
         isBoulder = false;
     
-    for(size_t i = 0; i < numObjects; ++i)
+    for(int i = 0; i < numObjects; ++i)
     {
         generateRandomCoordinates(xCoord, yCoord, isBoulder);
         
@@ -238,29 +235,27 @@ void StudentWorld::generateProtesters()
         return; //There are already enough protesters on the field
     
     //Checking if this is the initial tick or if enough ticks have passed for a new protester
-    if(currentTick == 0 || currentTick % ticksBetweenProtesters == 0)
-    {
-        int probabilityOfHardcore = MIN(90, getLevel() * 10 + 30);
-        int chanceOfHardcore = rand() % probabilityOfHardcore;
-        
-        //1 in probabilityOfHardcore chance that protester will be hardcore
-        if(chanceOfHardcore == 0)
-            gameObjects.push_back(std::unique_ptr<Actor>(new HardcoreProtestor(this, getLevel())));
-        else
-            gameObjects.push_back(std::unique_ptr<Actor>(new RegularProtester(this, getLevel())));
-        
-        ++numberOfProtesters;
-    }
-    
-    
+	if (currentTick == 0 || currentTick % ticksBetweenProtesters == 0)
+	{
+		int probabilityOfHardcore = MIN(90, getLevel() * 10 + 30);
+		int chanceOfHardcore = rand() % probabilityOfHardcore;
+
+		//1 in probabilityOfHardcore chance that protester will be hardcore
+		if (chanceOfHardcore == 0)
+			gameObjects.push_back(std::unique_ptr<Actor>(new HardcoreProtestor(this, getLevel())));
+		else
+			gameObjects.push_back(std::unique_ptr<Actor>(new RegularProtester(this, getLevel())));
+
+		++numberOfProtesters;
+	}
 }
 //---------------------------------------------------------------
 void StudentWorld::distributeBarrelsGoldAndBoulders()
 {
-	barrelCount = MIN((2 + getLevel()), 21);  //FIXME - change to lambda function?
+	barrelCount = MIN((2 + getLevel()), 21); 
     int goldCount = MAX(5 - getLevel() / 2, 2);
-    int boulderCount = MIN(getLevel() / 2 + 2, 9);
-    
+	int boulderCount = MIN(getLevel() / 2 + 2, 9);	
+
     generateObjects(barrelCount, GENERATE_OIL);
     generateObjects(goldCount, GENERATE_GOLD);
     generateObjects(boulderCount, GENERATE_BOULDER);
@@ -320,7 +315,7 @@ bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direct
         return false;   //Protester is too far
     
     //Shifting x or y coordinate over 1 depending on direction protester is facing
-    if(!shiftCoordinates(newX, newY, d))
+    if(!shiftCoordinates(newX, newY, 1, d))
         return false;   //Protester is facing out of bounds
     
     /*
@@ -351,13 +346,13 @@ void StudentWorld::shoutAtTunnelMan()
     playSound(SOUND_PROTESTER_YELL);
 }
 //---------------------------------------------------------------
-bool StudentWorld::shiftCoordinates(int &x, int &y, GraphObject::Direction d)
+bool StudentWorld::shiftCoordinates(int &x, int &y, int amountToShift, GraphObject::Direction directionToShift)
 {
-    switch(d)
+    switch(directionToShift)
     {
         case GraphObject::down:
         {
-            y -= 1;
+            y -= amountToShift;
             
             if(y < 0)
                 return false;
@@ -366,7 +361,7 @@ bool StudentWorld::shiftCoordinates(int &x, int &y, GraphObject::Direction d)
         }
         case GraphObject::up:
         {
-            y += 1;
+            y += amountToShift;
             
             if(y > MAX_COORDINATE)
                 return false;
@@ -375,7 +370,7 @@ bool StudentWorld::shiftCoordinates(int &x, int &y, GraphObject::Direction d)
         }
         case GraphObject::left:
         {
-            x -= 1;
+            x -= amountToShift;
             
             if(x < 0)
                 return false;
@@ -384,7 +379,7 @@ bool StudentWorld::shiftCoordinates(int &x, int &y, GraphObject::Direction d)
         }
         case GraphObject::right:
         {
-            x += 1;
+            x += amountToShift;
             
             if(x > MAX_COORDINATE)
                 return false;
@@ -453,15 +448,44 @@ bool StudentWorld::checkForBribes(int x, int y)
 	return false;
 }
 //---------------------------------------------------------------
-bool StudentWorld::noEarthBlocking(int x, int y, GraphObject::Direction d)
+bool StudentWorld::noEarthBlocking(int x, int y, GraphObject::Direction directionToCheck)
 {
-    int newX = x;
-    int newY = y;
+	switch (directionToCheck) 
+	{
+		case GraphObject::right:
+		case GraphObject::up:
+		{
+			if (!shiftCoordinates(x, y, 4, directionToCheck))
+				return false;
+			break;
+		}
+		case GraphObject::left: 
+		case GraphObject::down:
+		{
+			if (!shiftCoordinates(x, y, 1, directionToCheck))
+				return false;
+			break;
+		}
+	}
+
+	if (directionToCheck == GraphObject::right || directionToCheck == GraphObject::left) 
+	{
+		for (int i = y; i < y + 4; ++i) 
+		{
+			if (earthField[x][i])
+				return false;
+		}
+	}
+	else 
+	{
+		for (int i = x; i < x + 4; ++i) 
+		{
+			if (earthField[i][y])
+				return false;
+		}
+	}
     
-    if(!shiftCoordinates(newX, newY, d))
-        return false;   //Coordinate shifting failed because of bounds
-    
-    return areaIsClearOfEarth(newX, newY);
+	return true;
 }
 //---------------------------------------------------------------
 void StudentWorld::checkForBoulderHits(int x, int y)

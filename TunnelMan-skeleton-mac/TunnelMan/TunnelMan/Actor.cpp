@@ -42,7 +42,7 @@ bool Actor::moveInDirection(Direction d)
     {
         case left:
         {
-            if(getX() > 0)
+            if(getX() > 0 && getWorld()->noBouldersBlocking(getX(), getY(), left, this))
             {
                 moveTo(getX() - 1, getY());
                 return true;
@@ -52,7 +52,7 @@ bool Actor::moveInDirection(Direction d)
         }
         case right:
         {
-            if(getX() < MAX_COORDINATE)
+            if(getX() < MAX_COORDINATE && getWorld()->noBouldersBlocking(getX(), getY(), right, this))
             {
                 moveTo(getX() + 1, getY());
                 return true;
@@ -62,7 +62,7 @@ bool Actor::moveInDirection(Direction d)
         }
         case up:
         {
-            if(getY() < MAX_COORDINATE)
+            if(getY() < MAX_COORDINATE && getWorld()->noBouldersBlocking(getX(), getY(), up, this))
             {
                 moveTo(getX(), getY() + 1);
                 return true;
@@ -72,7 +72,7 @@ bool Actor::moveInDirection(Direction d)
         }
         case down:
         {
-            if(getY() > 0)
+            if(getY() > 0 && getWorld()->noBouldersBlocking(getX(), getY(), down, this))
             {
                 moveTo(getX(), getY() - 1);
                 return true;
@@ -161,11 +161,13 @@ void Boulder::fall()
 {
     getWorld()->checkForBoulderHits(getX(), getY());
     
-    //Checking that there is no Earth blocking the rock from falling
-    if (getWorld()->noEarthBlocking(getX(), getY(), down))
+    //Checking that there is no Earth or other boulders blocking the boulder from falling
+    if (getWorld()->noEarthBlocking(getX(), getY(), down) && getWorld()->noBouldersBlocking(getX(), getY(), down, this))
     {
         //Checking if it can move, and moving down if so.
-        if(!moveInDirection(down))
+		if (getY() > 0)
+			moveTo(getX(), getY() - 1);
+		else
             setDead();  //Movement failed - rock reached the bottom.
     }
     else
@@ -211,8 +213,7 @@ void Squirt::doSomething()
     }
     
     ///Checking that there is no earth or boulders in the way
-    if(getWorld()->noEarthBlocking(getX(), getY(), getDirection())
-       && getWorld()->noBouldersBlocking(getX(), getY(), getDirection()))
+    if(getWorld()->noEarthBlocking(getX(), getY(), getDirection()))
     {
         //Tries to move. If successful, moves in its current direction.
         if(!moveInDirection(getDirection()))
@@ -281,8 +282,12 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == left)
                 {
-                    if(getWorld()->noBouldersBlocking(getX(), getY(), left))
-                        moveInDirection(left);
+					if (getWorld()->noBouldersBlocking(getX(), getY(), left, this)) //Check that there are no boulders blocking the direction to move in
+					{
+						moveInDirection(left);
+						if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
+							getWorld()->playSound(SOUND_DIG);
+					}
                 }
                 else
                     setDirection(left);
@@ -293,8 +298,12 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == right)
                 {
-                    if(getWorld()->noBouldersBlocking(getX(), getY(), right))
-                        moveInDirection(right);
+					if (getWorld()->noBouldersBlocking(getX(), getY(), right, this))
+					{
+						moveInDirection(right);
+						if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
+							getWorld()->playSound(SOUND_DIG);
+					}
                 }
                 else
                     setDirection(right);
@@ -305,8 +314,12 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == up)
                 {
-                    if(getWorld()->noBouldersBlocking(getX(), getY(), up))
-                        moveInDirection(up);
+					if (getWorld()->noBouldersBlocking(getX(), getY(), up, this))
+					{
+						moveInDirection(up);
+						if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
+							getWorld()->playSound(SOUND_DIG);
+					}
                 }
                 else
                     setDirection(up);
@@ -317,8 +330,12 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == down)
                 {
-                    if(getWorld()->noBouldersBlocking(getX(), getY(), down))
-                        moveInDirection(down);
+					if (getWorld()->noBouldersBlocking(getX(), getY(), down, this))
+					{
+						moveInDirection(down);
+						if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
+							getWorld()->playSound(SOUND_DIG);
+					}
                 }
                 else
                     setDirection(down);
@@ -466,7 +483,7 @@ void RegularProtester::doSomething() //FIXME - implement
         
         //Checking that the new direction doesn't have any earth or boulders blocking
         while(!getWorld()->noEarthBlocking(getX(), getY(), getDirection()) ||
-              !getWorld()->noBouldersBlocking(getX(), getY(), getDirection()))
+              !getWorld()->noBouldersBlocking(getX(), getY(), getDirection(), this))
         {
             pickRandomDirection(); //Generating a new direction due to blocking
         }
@@ -488,8 +505,7 @@ void RegularProtester::doSomething() //FIXME - implement
 //------------------------------------------
 void RegularProtester::tryToMove()
 {
-    if(getWorld()->noBouldersBlocking(getX(), getY(), getDirection())
-       && getWorld()->noEarthBlocking(getX(), getY(), getDirection()))
+    if(getWorld()->noBouldersBlocking(getX(), getY(), getDirection(), this))
     {
         //If function call is successful, protester will move. Otherwise it will not.
         if(!moveInDirection(getDirection()))
