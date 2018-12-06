@@ -442,8 +442,8 @@ void RegularProtester::doSomething() //FIXME - implement
     if(!isAlive())
         return;
     
+    
     //Checking that the proper amount of ticks have passed for the next action
-    //Does something every (ticksBetweenMoves + 1) ticks
     if(currentRestingTicks < ticksBetweenMoves)
     {
         ++currentRestingTicks;
@@ -460,6 +460,9 @@ void RegularProtester::doSomething() //FIXME - implement
     if(leavingOilField)
     {
         leaveOilField(); //FIXME - implement
+        currentRestingTicks = 0;
+        return;
+        
     }
     else if(getWorld()->canProteserShoutAtTunnelMan(getX(), getY(), getDirection()))
     {
@@ -468,16 +471,28 @@ void RegularProtester::doSomething() //FIXME - implement
         {
             getWorld()->shoutAtTunnelMan();
             nonRestingTickShoutedAt = totalNonRestingTicks;
+            currentRestingTicks = 0;
+            return;
         }
     }
-    else if(getWorld()->tunnelManIsInStraightLineOfSight(getX(), getY()))
+    else
     {
-        return; //FIXME - implement
+        GraphObject::Direction directionToTunnelMan;
+        if(getWorld()->tunnelManIsInStraightLineOfSight(getX(), getY(), directionToTunnelMan))
+        {
+            
+            setDirection(directionToTunnelMan);
+            moveInDirection(directionToTunnelMan);
+            numSquaresToMoveInCurrentDirection = 0;
+            currentRestingTicks = 0;
+            return;
+        }
     }
     
     --numSquaresToMoveInCurrentDirection;
     
-    if(numSquaresToMoveInCurrentDirection == 0)
+    
+    if(numSquaresToMoveInCurrentDirection <= 0)
     {
         pickRandomDirection();
         
@@ -492,7 +507,7 @@ void RegularProtester::doSomething() //FIXME - implement
     }
     else
     {
-        //checkIfProtesterIsAtIntersection; //FIXME - implement
+        checkIfProtesterIsAtIntersection(); //FIXME - implement
     }
     
     tryToMove();
@@ -505,9 +520,9 @@ void RegularProtester::doSomething() //FIXME - implement
 //------------------------------------------
 void RegularProtester::tryToMove()
 {
-    if(getWorld()->noBouldersBlocking(getX(), getY(), getDirection(), this))
+    if(getWorld()->noEarthBlocking(getX(), getY(), getDirection()))
     {
-        //If function call is successful, protester will move. Otherwise it will not.
+        //If function call is successful, protester will move. Function will fail if coordinates are out of bounds.
         if(!moveInDirection(getDirection()))
             numSquaresToMoveInCurrentDirection = 0;
     }
@@ -515,9 +530,9 @@ void RegularProtester::tryToMove()
         numSquaresToMoveInCurrentDirection = 0;
 }
 //------------------------------------------
-void RegularProtester::annoy(int damage) //FIXME - implement
+void RegularProtester::annoy(int damage)
 {
-    //Checking that the protester is not already leaving the oil field
+    //Checking that the protester is not already leaving the oil field, in which case it can't be annoyed.
     if(!leavingOilField)
     {
         takeDamage(damage);
@@ -531,6 +546,7 @@ void RegularProtester::annoy(int damage) //FIXME - implement
                 getWorld()->increaseScore(SCORE_PROTESTER_BONKED);
             
             leavingOilField = true;
+            stunned = false;    //Setting this to false in case protester was squirted before being bonked
             currentRestingTicks = ticksBetweenMoves; //Allowing protester to move immediately
         }
         else
@@ -603,6 +619,28 @@ void RegularProtester::pickRandomDirection()
     }
 }
 //------------------------------------------
+void RegularProtester::checkIfProtesterIsAtIntersection()
+{
+    if(totalNonRestingTicks - lastTickTurnMade < TICKS_BETWEEN_TURNS)
+        return; //Not enough ticks have passed to make another turn
+    
+    //FIXME - finish this function
+    //If protester is facing up/down, we need to check if he can make a left/right turn, or vice versa
+    switch(getDirection())
+    {
+        case up:
+        case down:
+        {
+            //if(getWorld()->noBouldersBlocking(getX(), getY(), left, this))
+                
+        }
+            break;
+    }
+    
+    lastTickTurnMade = totalNonRestingTicks;
+}
+//------------------------------------------
+
 
 /*
  *

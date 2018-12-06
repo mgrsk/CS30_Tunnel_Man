@@ -30,7 +30,7 @@ int StudentWorld::init()
 	player = std::unique_ptr<TunnelMan>(new TunnelMan(this));
 	distributeBarrelsGoldAndBoulders();
     ticksBetweenProtesters = MAX(25, 200 - getLevel());
-    targetNumberOfProtesters = MIN(15, 2 + getLevel() * 1.5);
+    targetNumberOfProtesters = 10;//MIN(15, 2 + getLevel() * 1.5); FIXME - testing
     currentTick = 0;
     
 	return GWSTATUS_CONTINUE_GAME;
@@ -231,7 +231,7 @@ void StudentWorld::generateObjects(int numObjects, int typeOfObject)
 //---------------------------------------------------------------
 void StudentWorld::generateProtesters()
 {
-    if(numberOfProtesters == targetNumberOfProtesters)
+    if(numberOfProtesters >= targetNumberOfProtesters)
         return; //There are already enough protesters on the field
     
     //Checking if this is the initial tick or if enough ticks have passed for a new protester
@@ -254,7 +254,7 @@ void StudentWorld::distributeBarrelsGoldAndBoulders()
 {
 	barrelCount = MIN((2 + getLevel()), 21); 
     int goldCount = MAX(5 - getLevel() / 2, 2);
-	int boulderCount = MIN(getLevel() / 2 + 2, 9);	
+    int boulderCount = 10;//MIN(getLevel() / 2 + 2, 9); FIXME- testing only
 
     generateObjects(barrelCount, GENERATE_OIL);
     generateObjects(goldCount, GENERATE_GOLD);
@@ -308,14 +308,11 @@ double StudentWorld::getTunnelManDistance(int x, int y)
 //---------------------------------------------------------------
 bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direction d)
 {
-    int newX = x;
-    int newY = y;
-    
     if(calculateEuclidianDistance(x, y, player->getX(), player->getY()) > 4.0)
         return false;   //Protester is too far
     
     //Shifting x or y coordinate over 1 depending on direction protester is facing
-    if(!shiftCoordinates(newX, newY, 1, d))
+    if(!shiftCoordinates(x, y, 1, d))
         return false;   //Protester is facing out of bounds
     
     /*
@@ -323,9 +320,9 @@ bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direct
      the 16x16 grid that an object could occupy with these coordinates,
      then the protester is facing him.
      */
-    for(int i = newX; i < newX + SPRITE_WIDTH; ++i)
+    for(int i = x; i < x + SPRITE_WIDTH; ++i)
     {
-        for(int j = newY; j < newY + SPRITE_HEIGHT; ++j)
+        for(int j = y; j < y + SPRITE_HEIGHT; ++j)
         {
             if(i == player->getX() && j == player->getY())
                 return true;
@@ -335,9 +332,37 @@ bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direct
     return false;
 }
 //---------------------------------------------------------------
-bool StudentWorld::tunnelManIsInStraightLineOfSight(int x, int y)
+bool StudentWorld::tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::Direction &directionToTunnelMan)
 {
-    return false; //FIXME - implement function
+    int tunnelManX = player->getX();    //Stores tunnelMan's x-coordinate. Avoids calling getX() too many times
+    int tunnelManY = player->getY();    //Stores tunnelMan's y-coordinate. Avoids calling getY() too many times
+    
+    if(x == tunnelManX)
+    {
+        if(y > tunnelManY)
+            directionToTunnelMan = GraphObject::down;
+        else
+            directionToTunnelMan = GraphObject::up;
+    }
+    else if(y == tunnelManY)
+    {
+        if(x > tunnelManX)
+            directionToTunnelMan = GraphObject::left;
+        else
+            directionToTunnelMan = GraphObject::right;
+    }
+    else
+        return false; //TunnelMan must have one x or y coordinate in common with protester to be straight line away
+    
+    //Continues to shift coordinates in TunnelMan's direction, to see if there is no Earth/Boulder's blocking the path to him
+    while(noEarthBlocking(x, y, directionToTunnelMan) && noBouldersBlocking(x, y, directionToTunnelMan, nullptr))
+    {
+        shiftCoordinates(x, y, 1, directionToTunnelMan);
+        if(x == tunnelManX || y == tunnelManY)
+            return true;    //The protester is able to reach TunnelMan without any earth/boulders blocking
+    }
+    
+    return false;   //There was either Earth or a boulder blocking the path to TunnelMan
 }
 //---------------------------------------------------------------
 void StudentWorld::shoutAtTunnelMan()
@@ -455,18 +480,20 @@ bool StudentWorld::noEarthBlocking(int x, int y, GraphObject::Direction directio
 		case GraphObject::right:
 		case GraphObject::up:
 		{
-			if (!shiftCoordinates(x, y, 4, directionToCheck))
-				return false;
+            shiftCoordinates(x, y, 4, directionToCheck);
 			break;
 		}
 		case GraphObject::left: 
 		case GraphObject::down:
 		{
-			if (!shiftCoordinates(x, y, 1, directionToCheck))
-				return false;
+            shiftCoordinates(x, y, 1, directionToCheck);
 			break;
 		}
 	}
+    
+    //Validating that shifted coordinates are in bounds
+    if(x < 0 || x >= VIEW_WIDTH || y < 0 || y >= VIEW_HEIGHT)
+        return false;
 
 	if (directionToCheck == GraphObject::right || directionToCheck == GraphObject::left) 
 	{
@@ -493,6 +520,9 @@ void StudentWorld::checkForBoulderHits(int x, int y)
 	double distance;
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
 	{
+        if(!(*it)->canBeAnnoyed())
+            continue;   //Skipping objects that can't be annoyed
+        
 		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
 
 		if (distance <= MIN_INTERACT_DIST)

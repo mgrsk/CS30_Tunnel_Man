@@ -94,7 +94,11 @@ public:
     bool canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direction d);
     void shoutAtTunnelMan();    //Called by the protester class, causes TunnelMan to be annoyed.
     
-    bool tunnelManIsInStraightLineOfSight(int x, int y);    //Checks if TunnelMan is within line of sight of a protester at x, y
+    /*
+     Checks if TunnelMan is within line of sight of a protester at x, y. The directionToTunnelMan
+     variable will return by reference the direction a protester needs to move to get closer to TunnelMan.
+     */
+    bool tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::Direction &directionToTunnelMan);
     
     /*
      Checks if there are any protesters within range of a gold nugget at x, y

@@ -25,6 +25,7 @@
 #define MAX_TICKS_BOULDER_WAITING	(30)    //How long a boulder waits after the earth below it is cleared
 #define SQUIRT_LIFETIME             (4)     //How many ticks a squirt can exist
 #define TICKS_BETWEEN_SHOUTS        (15)    //How long a protester has to wait after shouting to be able to shout again
+#define TICKS_BETWEEN_TURNS         (20)    //How long a protester has to wait before making a turn
 
 //Different damage values
 #define DAMAGE_BOULDER              (20)    //How much damage a boulder does. It is high enough to kill anything instantly
@@ -216,18 +217,18 @@ class RegularProtester : public People
 {
 private:
     bool leavingOilField;  //Keeps track of whether the protester is leaving the oil field
-    bool atRest;           //Tells us if the protester is able to take actions
     bool stunned;          //Is true if the protester is hit by a squirt. After a certain number of ticks, will go back to false.
     
     int ticksBetweenMoves;  //The minimum number of ticks a protester must wait between actions
     int currentRestingTicks;   //Number of ticks since last movement
     int nonRestingTickShoutedAt;    //Keeps track of when a protester last shouted
     int totalNonRestingTicks;  //Stores total number of non-resting ticks
+    int lastTickTurnMade; //Stores the last tick that a protester turned at
     
     int levelNumber;    //The current level that the gameWorld is at. Used for certain calculations
     int numSquaresToMoveInCurrentDirection; //The number of squares the protester wants to continue moving
 
-    
+    void checkIfProtesterIsAtIntersection(); //If
     void pickRandomDirection(); //Changes protester's direction randomly until one is picked that allows it to move at least one square
     void tryToMove();   //Attempts to move.
     
