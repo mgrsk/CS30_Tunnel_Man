@@ -57,34 +57,33 @@ public:
     void decBarrels();          //Reduces barrelCount by 1. Is called by the BarrelOfOil class
     void decNumberOfProtesters();   //Reduces numberOfProtesters by 1. Called by the protester class
     
-    //FIXME - make more efficient
-    void deleteEarthAroundObject(int xCord, int yCord);    //Deletes earth in the 4x4 area overlapping an object's image.
+    void deleteEarthAroundObject(const int xCord, const int yCord);    //Deletes earth in the 4x4 area overlapping an object's image.
     
     /*
      Determines if an object at x, y can be spawned by checking area surrounding it for objects in the gameObjects list.
      If there are NO objects within MIN_SPAWN_DIST, returns true. Otherwise returns false.
     */
-    bool areaIsClearOfObjects(int x, int y);
+    bool areaIsClearOfObjects(const int x, const int y) const;
     
     /*
      Determines if the 4x4 area of an object at x, y would be clear of any Earth. Returns
      true if there is NO Earth, otherwise returns false.
     */
-    bool areaIsClearOfEarth(int x, int y);
+    bool areaIsClearOfEarth(const int x, const int y) const;
     
     /*
      Determines if moving an object at x, y in the Direction specified by d would cause it
      to hit a boulder. Returns true if NO boulders would hit it, otherwise returns false.
     */
-    bool noBouldersBlocking(int x, int y, GraphObject::Direction d, Actor *object);
+    bool noBouldersBlocking(int x, int y, GraphObject::Direction d, Actor *object) const;
     
     /*
      Determines if moving an object at x, y in the Direction specified by d would cause it
      to hit Earth. Returns true if NO Earth would hit it, otherwise returns false.
      */
-    bool noEarthBlocking(int x, int y, GraphObject::Direction directionToCheck); //FIXME - make more efficient
+    bool noEarthBlocking(int x, int y, GraphObject::Direction directionToCheck) const; 
     
-    double getTunnelManDistance(int x, int y);    //Returns the distance between TunnelMan and an object at x, y
+    double getTunnelManDistance(const int x, const int y) const; //Returns the Euclidian distance between TunnelMan and an object at x, y
     
     /*
      Determines if a protester at x, y and facing Direction d can shout at the TunnelMan.
@@ -105,29 +104,29 @@ public:
      that can be bribed. If yes, it bribes ONLY the first protester it finds and
      the function returns true. Otherwise, returns false.
     */
-    bool checkForBribes(int x, int y);
+    bool checkForBribes(const int x, const int y);
     
     /*
      Checks if there are any protesters within range of a squirt at x, y that can be
-     annoyed. If yes, ALL protesters in range will be squirted and the function returns true.
-     Otherwise, it returns false.
+     annoyed. If yes, ALL protesters in range will be squirted and the function returns true,
+     which will ultimately destroy the squirt from the squirt class. Otherwise, it returns false.
     */
-    bool checkForSquirtGunHits(int x, int y);
+    bool checkForSquirtGunHits(const int x, const int y);
     
-    void checkForBoulderHits(int x, int y); //Checks if a boulder at x, y will annoy the player or any protesters.
+    void checkForBoulderHits(const int x, const int y); //Checks if a boulder at x, y will annoy the player or any protesters.
     
-    void addToTunnelManInventory(int change); //Adds sonar, gold, or squirts to TunnelMan's Inventory based on the int change 
+    void addToTunnelManInventory(const int change); //Adds sonar, gold, or squirts to TunnelMan's Inventory based on the int change 
     
     /*
      Attempts to shift the x or y coordinate in the specified Direction d. If d == up, shifts y to y+1, if
      d == left, shifts x to x-1, etc. Returns true if move was successful and updates x or y
      by reference. Returns false and makes no changes if x or y would go out of bounds.
     */
-    bool shiftCoordinates(int &x, int &y, int amountToShift, GraphObject::Direction directionToShift);
+    bool shiftCoordinates(int &x, int &y, const int &amountToShift, GraphObject::Direction directionToShift) const;
     
     //FUNCTIONS CALLED BY TUNNELMAN TO USE HIS ITEMS
     void useSonar();    //Activates the sonar object and makes gold/oil nearby visible
-    void useSquirtGun(GraphObject::Direction d); //Creates a squirt object at TunnelMan's x,y position that moves in the Direction d.
+    void useSquirtGun(); //Creates a squirt object at TunnelMan's x,y position that moves in the Direction d.
     void dropGoldNug(); //Creates a gold object at TunnelMan's x,y position. Gives it temporary lifespan
     
     
@@ -156,7 +155,7 @@ private:
     generateObjects is called from distributeBarrelsGoldAndBoulders. Int numObjects tells it how many objects to
     insert into the gameObjects vector, and typeOfObject tells generateObjects which type of object it is inserting.
     */
-	void generateObjects(int numObjects, int typeOfObject);
+	void generateObjects(const int numObjects, const int typeOfObject);
     
     void generateGoodies(); //Tries to generate sonar/water pools depending on random values.
     
@@ -165,10 +164,10 @@ private:
      within the range of MIN_COORDINATE to MAX_COORDINATE for both x and y, UNLESS isBoulder is true. In that case,
      the coordinates will be from MIN_BOULDER_HEIGHT to MAX_COORDINATE for the yCoord value.
      */
-    void generateRandomCoordinates(int & xCoord, int & yCoord, bool isBoulder);
+    void generateRandomCoordinates(int &xCoord, int &yCoord, bool isBoulder) const;
     
     void generateProtesters();  //Attempts to generate a new protester
-	double calculateEuclidianDistance(double x1, double y1, double x2, double y2); //Calculates the distance between x1,y1 and x2,y2
+	double calculateEuclidianDistance(double x1, double y1, double x2, double y2) const; //Calculates the distance between x1,y1 and x2,y2
     
 
     

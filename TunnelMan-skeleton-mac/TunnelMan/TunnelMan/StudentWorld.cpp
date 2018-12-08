@@ -30,7 +30,7 @@ int StudentWorld::init()
 	player = std::unique_ptr<TunnelMan>(new TunnelMan(this));
 	distributeBarrelsGoldAndBoulders();
     ticksBetweenProtesters = MAX(25, 200 - getLevel());
-    targetNumberOfProtesters = 10;//MIN(15, 2 + getLevel() * 1.5); FIXME - testing
+    targetNumberOfProtesters = MIN(15, 2 + getLevel() * 1.5);
     currentTick = 0;
     
 	return GWSTATUS_CONTINUE_GAME;
@@ -96,29 +96,21 @@ void StudentWorld::makeEarthField()
 //---------------------------------------------------------------
 void StudentWorld::decBarrels() 
 {
-	--barrelCount;
+	--this->barrelCount;
 }
 //---------------------------------------------------------------
 void StudentWorld::decNumberOfProtesters()
 {
-    --numberOfProtesters;
+    --this->numberOfProtesters;
 }
 //---------------------------------------------------------------
-void StudentWorld::deleteEarthAroundObject(int xCord, int yCord)
+void StudentWorld::deleteEarthAroundObject(const int xCord, const int yCord)
 {
-    int newX;   //Will store the x-Coordinates in TunnelMan's 4x4 image
-    int newY;   //Will store the y-Coordinates in TunnelMan's 4x4 image
-    
-    for(int i = 0; i < SPRITE_WIDTH; ++i)   //Iterating through x coordinates of image
+    for(int i = xCord; i < xCord + SPRITE_WIDTH; ++i)   //Iterating through x coordinates of image
     {
-        for(int j = 0; j < SPRITE_WIDTH; ++j)   //Iterating through y coordinates of image
+        for(int j = yCord; j < yCord + SPRITE_HEIGHT; ++j)   //Iterating through y coordinates of image
         {
-            newX = xCord + i;
-            newY = yCord + j;
-            
-            //Validating that coordinate is in bounds
-            if(newX < VIEW_WIDTH && newY < VIEW_HEIGHT - SPRITE_WIDTH)
-                earthField[newX][newY].reset();     //Frees unique pointer and deletes earth at that point
+                earthField[i][j].reset();     //Frees unique pointer and deletes earth at that point
         }
     }
 }
@@ -134,27 +126,28 @@ void StudentWorld::destroyEarthField()
     }
 }
 //---------------------------------------------------------------
-double StudentWorld::calculateEuclidianDistance(double x1, double y1, double x2, double y2) 
+double StudentWorld::calculateEuclidianDistance(double x1, double y1, double x2, double y2) const
 {
 	double xDiffSquared = pow(x2 - x1, 2);
 	double yDiffSquared = pow(y2 - y1, 2);
 	return sqrt(xDiffSquared + yDiffSquared);
 }
 //---------------------------------------------------------------
-bool StudentWorld::areaIsClearOfObjects(int x, int y)
+bool StudentWorld::areaIsClearOfObjects(const int x, const int y) const
 {
     double distance;
-	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
+	for (std::list<unique_ptr<Actor>>::const_iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
 	{
 		//Checking if the area within 6 Euclidian units is clear of other objects
         distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+        
 		if(distance < MIN_SPAWN_DIST)
 			return false;	//Object to be built is too close to another object and cannot be built there
 	}
-	return true;	//No objects within 6 units were found and object can be built
+	return true;	//No objects within MIN_SPAWN_DIST units were found and object can be built
 }
 //---------------------------------------------------------------
-bool StudentWorld::areaIsClearOfEarth(int x, int y)
+bool StudentWorld::areaIsClearOfEarth(const int x, const int y) const
 {
 	for (int i = x; i < x + SPRITE_WIDTH; ++i)
 	{
@@ -167,13 +160,13 @@ bool StudentWorld::areaIsClearOfEarth(int x, int y)
 	return true;    //No earth was found. Object is free to move
 }
 //---------------------------------------------------------------
-bool StudentWorld::noBouldersBlocking(int x, int y, GraphObject::Direction d, Actor *object)
+bool StudentWorld::noBouldersBlocking(int x, int y, GraphObject::Direction d, Actor *object) const
 {
     if(!shiftCoordinates(x, y, 1, d))
         return false;   //Coordinate shifting failed because of bounds
     
     double distance;
-    for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
+    for (std::list<unique_ptr<Actor>>::const_iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
     {
         if((*it)->isBoulder() && object != &(*it->get()))
         {
@@ -185,7 +178,7 @@ bool StudentWorld::noBouldersBlocking(int x, int y, GraphObject::Direction d, Ac
     return true;    //Area is clear of boulders
 }
 //---------------------------------------------------------------
-void StudentWorld::generateObjects(int numObjects, int typeOfObject)
+void StudentWorld::generateObjects(const int numObjects, const int typeOfObject)
 {
     int xCoord;
     int yCoord;
@@ -231,30 +224,30 @@ void StudentWorld::generateObjects(int numObjects, int typeOfObject)
 //---------------------------------------------------------------
 void StudentWorld::generateProtesters()
 {
-    if(numberOfProtesters >= targetNumberOfProtesters)
+    if(this->numberOfProtesters >= this->targetNumberOfProtesters)
         return; //There are already enough protesters on the field
     
-    //Checking if this is the initial tick or if enough ticks have passed for a new protester
-	if (currentTick == 0 || currentTick % ticksBetweenProtesters == 0)
+    //Checking if enough ticks have passed for a new protester or if this is the initial tick
+	if (this->currentTick % this->ticksBetweenProtesters == 0 || this->currentTick == 0)
 	{
-		int probabilityOfHardcore = MIN(90, getLevel() * 10 + 30);
-		int chanceOfHardcore = rand() % probabilityOfHardcore;
+		int probabilityOfHardcore = MIN(90, getLevel() * 10 + 30);  //Determines %chance of a hardcore protester
+		int chanceOfHardcore = (rand() % 100) + 1;  //Generating random number 1-100 inclusive
 
-		//1 in probabilityOfHardcore chance that protester will be hardcore
-		if (chanceOfHardcore == 0)
+		//If chanceOfHardcore is in range 1-probabilityOfHardcore, then make a hardcore protester.
+		if (chanceOfHardcore <= probabilityOfHardcore)
 			gameObjects.push_back(std::unique_ptr<Actor>(new HardcoreProtestor(this, getLevel())));
 		else
 			gameObjects.push_back(std::unique_ptr<Actor>(new RegularProtester(this, getLevel())));
 
-		++numberOfProtesters;
+		++this->numberOfProtesters;
 	}
 }
 //---------------------------------------------------------------
 void StudentWorld::distributeBarrelsGoldAndBoulders()
 {
-	barrelCount = MIN((2 + getLevel()), 21); 
+	this->barrelCount = MIN((2 + getLevel()), 21);
     int goldCount = MAX(5 - getLevel() / 2, 2);
-    int boulderCount = 10;//MIN(getLevel() / 2 + 2, 9); FIXME- testing only
+    int boulderCount = MIN(getLevel() / 2 + 2, 9);
 
     generateObjects(barrelCount, GENERATE_OIL);
     generateObjects(goldCount, GENERATE_GOLD);
@@ -262,7 +255,7 @@ void StudentWorld::distributeBarrelsGoldAndBoulders()
     
 }
 //---------------------------------------------------------------
-void StudentWorld::generateRandomCoordinates(int & xCoord, int & yCoord, bool isBoulder)
+void StudentWorld::generateRandomCoordinates(int & xCoord, int & yCoord, bool isBoulder) const
 {
     xCoord = rand() % (MAX_COORDINATE + 1);    //Random x coordinate from 0-60 inclusive.
     
@@ -274,11 +267,11 @@ void StudentWorld::generateRandomCoordinates(int & xCoord, int & yCoord, bool is
 //---------------------------------------------------------------
 void StudentWorld::generateGoodies() 
 {
-    int tickLife = MAX(100, 300 - 10 * getLevel());
 	int goodieChance = (getLevel() * 25) + 300;
     
 	if (rand() % goodieChance == 0) //1 in G chance new goodie is made
 	{
+        int tickLife = MAX(100, 300 - 10 * getLevel()); //The maximum tick life of the goodie to be generated
 		int sonarChance = rand() % 5; //1 in 5 chance sonar is made
         
 		if (sonarChance == 0)	//Generate a sonar
@@ -301,7 +294,7 @@ void StudentWorld::generateGoodies()
 	}
 }
 //---------------------------------------------------------------
-double StudentWorld::getTunnelManDistance(int x, int y)
+double StudentWorld::getTunnelManDistance(const int x, const int y) const
 {
 	return calculateEuclidianDistance(x, y, player->getX(), player->getY());
 }
@@ -332,6 +325,7 @@ bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direct
     return false;
 }
 //---------------------------------------------------------------
+//FIXME - protesters are able to see through walls
 bool StudentWorld::tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::Direction &directionToTunnelMan)
 {
     int tunnelManX = player->getX();    //Stores tunnelMan's x-coordinate. Avoids calling getX() too many times
@@ -371,7 +365,7 @@ void StudentWorld::shoutAtTunnelMan()
     playSound(SOUND_PROTESTER_YELL);
 }
 //---------------------------------------------------------------
-bool StudentWorld::shiftCoordinates(int &x, int &y, int amountToShift, GraphObject::Direction directionToShift)
+bool StudentWorld::shiftCoordinates(int &x, int &y, const int &amountToShift, GraphObject::Direction directionToShift) const
 {
     switch(directionToShift)
     {
@@ -439,43 +433,59 @@ void StudentWorld::askPlayerAndObjectsToDoSomething()
 		(*it)->doSomething();
 }
 //---------------------------------------------------------------
-void StudentWorld::addToTunnelManInventory(int change)
+void StudentWorld::addToTunnelManInventory(const int change)
 {
 	switch (change) 
 	{
 		case ADD_GOLD_NUGGET:
+        {
 			player->incGoldNugs();
 			break;
+        }
 		case ADD_SONAR:
+        {
 			player->incSonarCharges();
 			break;
+        }
 		case ADD_SQUIRTS:
+        {
 			player->increaseNumSquirts();
 			break;
+        }
 	}
 }
 //---------------------------------------------------------------
-bool StudentWorld::checkForBribes(int x, int y)
+bool StudentWorld::checkForBribes(const int x, const int y)
 {
 	double distance;
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
 	{
-		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+        if((*it)->canBeAnnoyed())   //For efficiency. Skips all objects except protesters.
+        {
+            distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
         
-        //Only protestors and tunnelman can be annoyed, but since tunnelman is not in
-        //the gameobjects list, only protestors can pass this if statement and be bribed
-		if (distance <= PICKUP_DISTANCE && (*it)->canBeAnnoyed())
-		{
-			if((*it)->bribe())
-                return true;
-		}
+            if (distance <= PICKUP_DISTANCE)
+            {
+                if((*it)->bribe())  //Checking if the protester is in a state where he can be bribed, and bribing him if so
+                    return true;    //Protester was able to be bribed. Only one can be bribed by each gold, so we must exit the function.
+            }
+        }
 	}
 	return false;
 }
 //---------------------------------------------------------------
-bool StudentWorld::noEarthBlocking(int x, int y, GraphObject::Direction directionToCheck)
+/*
+ If we need to check the right side of an object at (x, y) for Earth, then we must check
+ (x+4, y) to (x+4, y+3) for Earth, because its image occupies x+1, x+2, x+3, and the first bit
+ of Earth to its right could only exist at x+4, and we need to check the y coordinates its image
+ would occupy if it were moved to the right. The same principle applies for checking up,
+ but its (x, y+4) to (x+3, y+4). For checking left and down, since the objects point is at the bottom
+ right, we only need to shift the constant coordinate by 1. So for left, it would be (x-1, y) to
+ (x-1, y+3), and for down it would be (x, y-1) to (x+3, y-1).
+ */
+bool StudentWorld::noEarthBlocking(int x, int y, GraphObject::Direction directionToCheck) const
 {
-	switch (directionToCheck) 
+	switch (directionToCheck) //Determines whether to shift the x or y coordinate, and by how much
 	{
 		case GraphObject::right:
 		case GraphObject::up:
@@ -489,18 +499,21 @@ bool StudentWorld::noEarthBlocking(int x, int y, GraphObject::Direction directio
             shiftCoordinates(x, y, 1, directionToCheck);
 			break;
 		}
+        case GraphObject::none:
+            return false;
 	}
     
     //Validating that shifted coordinates are in bounds
     if(x < 0 || x >= VIEW_WIDTH || y < 0 || y >= VIEW_HEIGHT)
         return false;
 
+    //Determines which coordinate to shift, and which one to iterate through in the loop
 	if (directionToCheck == GraphObject::right || directionToCheck == GraphObject::left) 
 	{
 		for (int i = y; i < y + 4; ++i) 
 		{
 			if (earthField[x][i])
-				return false;
+				return false;   //Earth was found to the object's left or right
 		}
 	}
 	else 
@@ -508,33 +521,35 @@ bool StudentWorld::noEarthBlocking(int x, int y, GraphObject::Direction directio
 		for (int i = x; i < x + 4; ++i) 
 		{
 			if (earthField[i][y])
-				return false;
+				return false;   //Earth was found above or below the object
 		}
 	}
     
 	return true;
 }
 //---------------------------------------------------------------
-void StudentWorld::checkForBoulderHits(int x, int y)
+void StudentWorld::checkForBoulderHits(const int x, const int y)
 {
 	double distance;
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
 	{
-        if(!(*it)->canBeAnnoyed())
-            continue;   //Skipping objects that can't be annoyed
-        
-		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+        if((*it)->canBeAnnoyed())   //For efficiency. Skips all objects in list except regular and hardcore protesters
+        {
+            //Calculating distance from boulder to protester
+            distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
 
-		if (distance <= MIN_INTERACT_DIST)
-			(*it)->annoy(DAMAGE_BOULDER);
+            if (distance <= MIN_INTERACT_DIST)  //Checking if the boulder is close enough to bonk the object
+                (*it)->annoy(DAMAGE_BOULDER);
+        }
 	}
-    if(getTunnelManDistance(x, y) <= 3.0)
+    
+    if(getTunnelManDistance(x, y) <= MIN_INTERACT_DIST)   //Checking player separately because he is not in gameobjects list
         player->annoy(DAMAGE_BOULDER);
 }
 //---------------------------------------------------------------
-bool StudentWorld::checkForSquirtGunHits(int x, int y)
+bool StudentWorld::checkForSquirtGunHits(const int x, const int y)
 {
-    bool annoyedProtester = false;
+    bool annoyedProtester = false;  //Tells us whether at least one or more protesters were annoyed
     double distance;
     
     for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
@@ -553,8 +568,9 @@ bool StudentWorld::checkForSquirtGunHits(int x, int y)
     return annoyedProtester;
 }
 //---------------------------------------------------------------
-void StudentWorld::useSonar() 
+void StudentWorld::useSonar()
 {
+    //Following two variables are simply to prevent calling getX() and getY() too many times in loop
 	int x = player->getX();
 	int y = player->getY();
 	double distance;
@@ -562,24 +578,27 @@ void StudentWorld::useSonar()
     //iterating through the gameObjects list and making the ones close enough to tunnelman visible
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
 	{
-		distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+        if(!(*it)->isVisible()) //For efficiency. Skips objects that are already visible
+        {
+            distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
 
-		if (distance < SONAR_RANGE)
-			(*it)->setVisible(true);
+            if (distance < SONAR_RANGE)
+                (*it)->setVisible(true);
+        }
 	}
     
     playSound(SOUND_SONAR);
 }
 //---------------------------------------------------------------
-void StudentWorld::useSquirtGun(GraphObject::Direction d)
+void StudentWorld::useSquirtGun()
 {
-    int x = player->getX();
-    int y = player->getY();
-    gameObjects.push_back(std::unique_ptr<Actor>(new Squirt(x, y, d, this)));
+    //Creating a new squirt object a TunnelMan's position, facing his direction
+    gameObjects.push_back(std::unique_ptr<Actor>(new Squirt(player->getX(), player->getY(), player->getDirection(), this)));
     playSound(SOUND_PLAYER_SQUIRT);
 }
 //---------------------------------------------------------------
 void StudentWorld::dropGoldNug()
 {
+    //Creating a new GoldNugget object at TunnelMan's position that is visible and cannot be picked up by him
 	gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(player->getX(), player->getY(), this, true, false)));
 }

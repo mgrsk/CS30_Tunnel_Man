@@ -355,7 +355,7 @@ void TunnelMan::doSomething()
             {
                 if(num_squirts > 0)
                 {
-                    getWorld()->useSquirtGun(getDirection());
+                    getWorld()->useSquirtGun();
                     --num_squirts;
                 }
                 break;
@@ -437,7 +437,7 @@ RegularProtester::RegularProtester(StudentWorld * world, int level, int imageID,
     nonRestingTickShoutedAt = -TICKS_BETWEEN_SHOUTS;
 }
 //------------------------------------------
-void RegularProtester::doSomething() //FIXME - implement
+void RegularProtester::doSomething()
 {
     if(!isAlive())
         return;
