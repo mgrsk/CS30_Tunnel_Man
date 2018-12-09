@@ -53,11 +53,10 @@ public:
     virtual void cleanUp();     //Destroys all objects after the level is finished
     
     void setDisplayText();      //Sets the stats at the top of the screen
+    void decBarrels(); //Reduces barrelCount by 1
+    void decNumberOfProtesters(); //Reduces numberOfProtesters by 1
     
-    void decBarrels();          //Reduces barrelCount by 1. Is called by the BarrelOfOil class
-    void decNumberOfProtesters();   //Reduces numberOfProtesters by 1. Called by the protester class
-    
-    void deleteEarthAroundObject(const int xCord, const int yCord);    //Deletes earth in the 4x4 area overlapping an object's image.
+    void deleteEarthAroundObject(const int xCord, const int yCord);  //Deletes earth in the 4x4 area overlapping an object's image.
     
     /*
      Determines if an object at x, y can be spawned by checking area surrounding it for objects in the gameObjects list.
@@ -75,7 +74,7 @@ public:
      Determines if moving an object at x, y by 1 unit in the Direction specified by d would cause it
      to hit a boulder. Returns true if NO boulders would hit it, otherwise returns false.
      The actor pointer is to ensure that a boulder calling this function does not count itself
-     as a boulder that it is about to hit. This function will have a few function calls where the argument
+     as a boulder that it is about to hit. This function will have a few instances of being called where the argument
      for this parameter is nullptr. This is because the object calling it is not a boulder,
      so this field is irrelevant.
     */
@@ -85,9 +84,10 @@ public:
      Determines if moving an object at x, y in the Direction specified by d would cause it
      to hit Earth. Returns true if NO Earth would hit it, otherwise returns false.
      */
-    bool noEarthBlocking(int x, int y, GraphObject::Direction directionToCheck) const; 
+    bool noEarthBlocking(int x, int y, GraphObject::Direction directionToCheck) const;
     
-    double getTunnelManDistance(const int x, const int y) const; //Returns the Euclidian distance between TunnelMan and an object at x, y
+    //Returns the Euclidian distance between TunnelMan and an object at x, y
+    double getTunnelManDistance(const int x, const int y) const;
     
     /*
      Determines if a protester at x, y and facing Direction d can shout at the TunnelMan.
@@ -102,6 +102,12 @@ public:
      variable will return by reference the direction a protester needs to move to get closer to TunnelMan.
      */
     bool tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::Direction &directionToTunnelMan) const;
+    
+    /*Returns the shortest number of moves an object at x, y would have to make to
+     reach the player. The directionToMove field will return by reference the
+     direction of the first step the object will have to take to move towards him.
+     */
+    int getNumberOfMovesFromTunnelMan(int x, int y, GraphObject::Direction &directionToMove);
     
     /*
      Checks if there are any protesters within range of a gold nugget at x, y
@@ -153,8 +159,7 @@ private:
 	void askPlayerAndObjectsToDoSomething();	//Asks player and all objects in gameObjects list to do something
 	void destroyDeadObjects();	                //Removes dead objects from the gameObjects list
     
-    void distributeBarrelsGoldAndBoulders();	//Determines number of barrels/gold/boulders to creat during init. Calls generateObjects
-    
+    void distributeBarrelsGoldAndBoulders();	//Determines number of barrels/gold/boulders to create during init
     /*
     generateObjects is called from distributeBarrelsGoldAndBoulders. Int numObjects tells it how many objects to
     insert into the gameObjects vector, and typeOfObject tells generateObjects which type of object it is inserting.

@@ -56,7 +56,8 @@
 #define SCORE_SONAR					(75)    //Sonar item is picked up
 #define SCORE_WATER_POOL			(100)   //Water pool is picked up (gives player more squirts)
 #define SCORE_PROTESTER_BONKED      (500)   //A protester is bonked with a boulder
-#define SCORE_PROTESTER_SQUIRTED    (100)   //A protester is annoyed by being squirted too many times
+#define SCORE_REGULAR_SQUIRTED      (100)   //A regular protester is annoyed by being squirted too many times
+#define SCORE_HARDCORE_SQUIRTED     (250)   //A hardcore protester is annoyed by being squirted too many times
 
 //Values for the StudentWorld's addToTunnelManInventory method
 #define ADD_GOLD_NUGGET				(1)
@@ -216,29 +217,45 @@ public:
 class RegularProtester : public People
 {
 private:
-    bool leavingOilField;  //Keeps track of whether the protester is leaving the oil field
-    bool stunned;          //Is true if the protester is hit by a squirt. After a certain number of ticks, will go back to false.
-    
-    int ticksBetweenMoves;  //The minimum number of ticks a protester must wait between actions
     int currentRestingTicks;   //Number of ticks since last movement
     int nonRestingTickShoutedAt;    //Keeps track of when a protester last shouted
     int totalNonRestingTicks;  //Stores total number of non-resting ticks
     int lastTickTurnMade; //Stores the last tick that a protester turned at
-    
-    int levelNumber;    //The current level that the gameWorld is at. Used for certain calculations
     int numSquaresToMoveInCurrentDirection; //The number of squares the protester wants to continue moving
-    
+
     void pickRandomDirection(); //Changes protester's direction randomly until one is picked that allows it to move at least one square
     void tryToMove();   //Attempts to move.
+    void moveTowardsExit(); //Takes a step towards the exit when a protester is in a leaveOilField state
     
     //If the protester can turn perpendicular to its current direction, changes to that direction and returns true. Otherwise returns false
     bool checkIfProtesterIsAtIntersection();
     
+    /*
+     For a regular protester, this function will simply call the checkIfTunnelManIsInStraightLineOfSight function
+     from the StudentWorld class. If that function returns true, it will also return true and update a few variables.
+     Otherwise it will return false. When overrided by the hardcore protester class, it will have additional functionality
+     */
+    virtual bool canProtesterDetectTunnelMan();
+    
+protected:
+    //levelNumber is the current level that the gameWorld is at. Used
+    //for certain calculations. Stored to avoid calling getWorld()->getLevel()
+    //too many times. FIXME - is this necessary?
+    int levelNumber;
+    int ticksToWaitBetweenMoves;  //The minimum number of ticks a protester must wait between actions
+    bool leavingOilField;  //Keeps track of whether the protester is leaving the oil field
+    
+    //Stunned is true if the protester is hit by a squirt, or if it is a hardcore protester that was bribed.
+    //Prevents protester from moving, until after a certain number of ticks when it goes back to false
+    bool stunned;
+    
 public:
     RegularProtester(StudentWorld * world, int level, int imageID = TID_PROTESTER, int maxHealth = DEFAULT_HEALTH_PROTESTER);
+    
 	virtual void doSomething() override;
+    virtual bool bribe() override;
 	void annoy(int damage) override;
-	bool bribe() override;
+    
 	void leaveOilField();
     void setNumSquaresToMoveInCurrentDirection();
 };
@@ -249,7 +266,10 @@ class HardcoreProtestor : public RegularProtester
 {
 public:
     HardcoreProtestor(StudentWorld * world, int levelNumber);
-    void doSomething() override;
+    
+    bool bribe() override;
+    //void annoy(int damage) override;
+    bool canProtesterDetectTunnelMan() override;
 };
 
 //------------------------------------------

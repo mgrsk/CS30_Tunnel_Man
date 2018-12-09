@@ -128,9 +128,9 @@ void StudentWorld::destroyEarthField()
 //---------------------------------------------------------------
 double StudentWorld::calculateEuclidianDistance(double x1, double y1, double x2, double y2) const
 {
-	double xDiffSquared = pow(x2 - x1, 2);
-	double yDiffSquared = pow(y2 - y1, 2);
-	return sqrt(xDiffSquared + yDiffSquared);
+	double xDiffSquared = pow(x2 - x1, 2);  //(x2 - x1)^2
+	double yDiffSquared = pow(y2 - y1, 2);  //(y2 - y1)^2
+	return sqrt(xDiffSquared + yDiffSquared);   //sqrt((x2-x1)^2 + (y2-y1^2))
 }
 //---------------------------------------------------------------
 bool StudentWorld::areaIsClearOfObjects(const int x, const int y) const
@@ -227,7 +227,7 @@ void StudentWorld::generateProtesters()
     if(this->numberOfProtesters >= this->targetNumberOfProtesters)
         return; //There are already enough protesters on the field
     
-    //Checking if enough ticks have passed for a new protester or if this is the initial tick
+    //Checking if enough ticks have passed for a new protester or if this is the initial tick for the level
 	if (this->currentTick % this->ticksBetweenProtesters == 0 || this->currentTick == 0)
 	{
 		int probabilityOfHardcore = MIN(90, getLevel() * 10 + 30);  //Determines %chance of a hardcore protester
@@ -357,6 +357,11 @@ bool StudentWorld::tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::D
     }
     
     return false;   //There was either Earth or a boulder blocking the path to TunnelMan
+}
+//---------------------------------------------------------------
+int StudentWorld::getNumberOfMovesFromTunnelMan(int x, int y, GraphObject::Direction &directionToMove)
+{
+    return 100; //FIXME - implement
 }
 //---------------------------------------------------------------
 void StudentWorld::shoutAtTunnelMan()
@@ -531,6 +536,7 @@ bool StudentWorld::noEarthBlocking(int x, int y, GraphObject::Direction directio
 void StudentWorld::checkForBoulderHits(const int x, const int y)
 {
 	double distance;
+    
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
 	{
         if((*it)->canBeAnnoyed())   //For efficiency. Skips all objects in list except regular and hardcore protesters
@@ -550,13 +556,14 @@ void StudentWorld::checkForBoulderHits(const int x, const int y)
 bool StudentWorld::checkForSquirtGunHits(const int x, const int y)
 {
     bool annoyedProtester = false;  //Tells us whether at least one or more protesters were annoyed
-    double distance;
+    double distance;    //Tells us distance between protester and squirt object
     
     for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it)
     {
-        if((*it)->canBeAnnoyed())
+        if((*it)->canBeAnnoyed())   //Allows loop to skip all objects besides protesters
         {
             distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
+            
             if(distance <= MIN_INTERACT_DIST)
             {
                 (*it)->annoy(DAMAGE_SQUIRT_GUN);
@@ -565,7 +572,7 @@ bool StudentWorld::checkForSquirtGunHits(const int x, const int y)
         }
     }
     
-    return annoyedProtester;
+    return annoyedProtester;    //True if any protesters were annoyed, otherwise false
 }
 //---------------------------------------------------------------
 void StudentWorld::useSonar()
@@ -573,12 +580,12 @@ void StudentWorld::useSonar()
     //Following two variables are simply to prevent calling getX() and getY() too many times in loop
 	int x = player->getX();
 	int y = player->getY();
-	double distance;
+	double distance;    //Tells us distance between TunnelMan and gold/barrels
     
     //iterating through the gameObjects list and making the ones close enough to tunnelman visible
 	for (std::list<unique_ptr<Actor>>::iterator it = gameObjects.begin(); it != gameObjects.end(); ++it) 
 	{
-        if(!(*it)->isVisible()) //For efficiency. Skips objects that are already visible
+        if(!(*it)->isVisible()) //Allows loop to skip objects that are already visible
         {
             distance = calculateEuclidianDistance(x, y, (*it)->getX(), (*it)->getY());
 
@@ -599,6 +606,6 @@ void StudentWorld::useSquirtGun()
 //---------------------------------------------------------------
 void StudentWorld::dropGoldNug()
 {
-    //Creating a new GoldNugget object at TunnelMan's position that is visible and cannot be picked up by him
+    //Creating a new GoldNugget object at TunnelMan's position that is visible and can be picked up by protesters
 	gameObjects.push_back(std::unique_ptr<Actor>(new GoldNugget(player->getX(), player->getY(), this, true, false)));
 }
