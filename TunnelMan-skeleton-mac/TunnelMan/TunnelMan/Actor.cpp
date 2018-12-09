@@ -282,12 +282,11 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == left)
                 {
-					if (getWorld()->noBouldersBlocking(getX(), getY(), left, this)) //Check that there are no boulders blocking the direction to move in
-					{
-						moveInDirection(left);
+					if(moveInDirection(left))   //moveInDirection verifies coordinates are in bounds and no boulders are blocking
+                    {
 						if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
-							getWorld()->playSound(SOUND_DIG);
-					}
+                            getWorld()->playSound(SOUND_DIG);   //Playing the sound only if the area TunnelMan moved to had Earth in it
+                    }
                 }
                 else
                     setDirection(left);
@@ -298,12 +297,11 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == right)
                 {
-					if (getWorld()->noBouldersBlocking(getX(), getY(), right, this))
-					{
-						moveInDirection(right);
-						if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
-							getWorld()->playSound(SOUND_DIG);
-					}
+                    if(moveInDirection(right))
+                    {
+                        if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
+                            getWorld()->playSound(SOUND_DIG);
+                    }
                 }
                 else
                     setDirection(right);
@@ -314,12 +312,11 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == up)
                 {
-					if (getWorld()->noBouldersBlocking(getX(), getY(), up, this))
-					{
-						moveInDirection(up);
-						if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
-							getWorld()->playSound(SOUND_DIG);
-					}
+                    if(moveInDirection(up))
+                    {
+                        if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
+                            getWorld()->playSound(SOUND_DIG);
+                    }
                 }
                 else
                     setDirection(up);
@@ -330,12 +327,11 @@ void TunnelMan::doSomething()
             {
                 if(getDirection() == down)
                 {
-					if (getWorld()->noBouldersBlocking(getX(), getY(), down, this))
-					{
-						moveInDirection(down);
-						if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
-							getWorld()->playSound(SOUND_DIG);
-					}
+                    if(moveInDirection(down))
+                    {
+                        if (!getWorld()->areaIsClearOfEarth(getX(), getY()))
+                            getWorld()->playSound(SOUND_DIG);
+                    }
                 }
                 else
                     setDirection(down);
@@ -409,6 +405,7 @@ size_t TunnelMan::getSonarCharges() const
 void TunnelMan::increaseNumSquirts()
 {
 	num_squirts += 5;
+    
 	if (num_squirts > MAX_ITEM_COUNT)
 		num_squirts = MAX_ITEM_COUNT;
 }
@@ -417,7 +414,11 @@ size_t TunnelMan::getNumSquirts() const
 {
 	return num_squirts;
 }
-//------------------------------------------
+//----------------------------
+
+
+
+
 
 
 /*
@@ -433,8 +434,11 @@ RegularProtester::RegularProtester(StudentWorld * world, int level, int imageID,
     ticksBetweenMoves = MAX(0, 3 - levelNumber / 4);
     setNumSquaresToMoveInCurrentDirection();
     
-    //This is set to -15 so that it can immediately shout at tunnelman once created
+    //This is set to negative so that it can shout within its first 15 ticks if TunnelMan is close enough
     nonRestingTickShoutedAt = -TICKS_BETWEEN_SHOUTS;
+    
+    //Set to negative so that it can turn within its first 200 ticks if it hits an intersection
+    lastTickTurnMade = -TICKS_BETWEEN_TURNS;
 }
 //------------------------------------------
 void RegularProtester::doSomething()
@@ -475,7 +479,7 @@ void RegularProtester::doSomething()
             return;
         }
     }
-    else
+    else    //Protester will check if he can see the TunnelMan
     {
         GraphObject::Direction directionToTunnelMan;
         if(getWorld()->tunnelManIsInStraightLineOfSight(getX(), getY(), directionToTunnelMan))
@@ -491,23 +495,29 @@ void RegularProtester::doSomething()
     
     --numSquaresToMoveInCurrentDirection;
     
-    
     if(numSquaresToMoveInCurrentDirection <= 0)
     {
         pickRandomDirection();
         
         //Checking that the new direction doesn't have any earth or boulders blocking
         while(!getWorld()->noEarthBlocking(getX(), getY(), getDirection()) ||
-              !getWorld()->noBouldersBlocking(getX(), getY(), getDirection(), this))
+              !getWorld()->noBouldersBlocking(getX(), getY(), getDirection(), nullptr))
         {
             pickRandomDirection(); //Generating a new direction due to blocking
         }
         
         setNumSquaresToMoveInCurrentDirection();
     }
-    else
+    else    //Checking if the protester can make a turn
     {
-        checkIfProtesterIsAtIntersection(); //FIXME - implement
+        if(totalNonRestingTicks - lastTickTurnMade >= TICKS_BETWEEN_TURNS)  //Checking that no turns have been made in last 200 ticks
+        {
+            if(checkIfProtesterIsAtIntersection())
+            {
+                lastTickTurnMade = totalNonRestingTicks;
+                setNumSquaresToMoveInCurrentDirection();
+            }
+        }
     }
     
     tryToMove();
@@ -535,11 +545,13 @@ void RegularProtester::annoy(int damage)
     //Checking that the protester is not already leaving the oil field, in which case it can't be annoyed.
     if(!leavingOilField)
     {
-        takeDamage(damage);
-        if(getHealth() <= 0)
+        takeDamage(damage); //Reducing its health appropriately
+        
+        if(getHealth() <= 0)    //Protester was annoyed completely
         {
             getWorld()->playSound(SOUND_PROTESTER_GIVE_UP);
             
+            //Increasing the score based on how the protester was annoyed
             if(damage == DAMAGE_SQUIRT_GUN)
                 getWorld()->increaseScore(SCORE_PROTESTER_SQUIRTED);
             else
@@ -549,10 +561,10 @@ void RegularProtester::annoy(int damage)
             stunned = false;    //Setting this to false in case protester was squirted before being bonked
             currentRestingTicks = ticksBetweenMoves; //Allowing protester to move immediately
         }
-        else
+        else    //Protester was annoyed but still has health left
         {
             getWorld()->playSound(SOUND_PROTESTER_ANNOYED);
-            stunned = true;
+            stunned = true; //Prevents protester from moving for a bit, based on formula below
             ticksBetweenMoves = MAX(50, 100 - levelNumber * 10);
         }
     }
@@ -578,11 +590,13 @@ void RegularProtester::leaveOilField() //FIXME - implement
         getWorld()->decNumberOfProtesters();
         return;
     }
-    
-    else if(true) //FIXME - implement
+    else //FIXME - implement
     {
-        return;
+        moveTo(MAX_COORDINATE, MAX_COORDINATE);
     }
+    
+    
+    
 }
 //------------------------------------------
 void RegularProtester::setNumSquaresToMoveInCurrentDirection()
@@ -619,27 +633,76 @@ void RegularProtester::pickRandomDirection()
     }
 }
 //------------------------------------------
-void RegularProtester::checkIfProtesterIsAtIntersection()
+bool RegularProtester::checkIfProtesterIsAtIntersection()
 {
-    if(totalNonRestingTicks - lastTickTurnMade < TICKS_BETWEEN_TURNS)
-        return; //Not enough ticks have passed to make another turn
+    //These two variables will store the directions that the protester can turn in, if any
+    Direction direction1 = none;
+    Direction direction2 = none;
     
-    //FIXME - finish this function
     //If protester is facing up/down, we need to check if he can make a left/right turn, or vice versa
     switch(getDirection())
     {
         case up:
         case down:
         {
-            //if(getWorld()->noBouldersBlocking(getX(), getY(), left, this))
-                
-        }
+            //Checking that no Boulders or Earth can block the protester in the left direction
+            if(getWorld()->noBouldersBlocking(getX(), getY(), left, nullptr) && getWorld()->noEarthBlocking(getX(), getY(), left))
+            {
+                direction1 = left;
+            }
+            if(getWorld()->noBouldersBlocking(getX(), getY(), right, nullptr) && getWorld()->noEarthBlocking(getX(), getY(), right))
+            {
+                direction2 = right;
+            }
             break;
+        }
+        case right:
+        case left:
+        {
+            if(getWorld()->noBouldersBlocking(getX(), getY(), up, nullptr) && getWorld()->noEarthBlocking(getX(), getY(), up))
+            {
+                direction1 = up;
+            }
+            if(getWorld()->noBouldersBlocking(getX(), getY(), down, nullptr) && getWorld()->noEarthBlocking(getX(), getY(), down))
+            {
+                direction2 = down;
+            }
+            break;
+        }
+        case none:
+            return false;
     }
     
-    lastTickTurnMade = totalNonRestingTicks;
+    if(direction1 != none || direction2 != none)    //Checking if at least one turn can be made
+    {
+        if(direction1 != none && direction2 != none)    //Two different turns can be made. Pick one randomly
+        {
+            int directionChoice = rand() % 2; //Generate a 0 or 1
+            
+            //Rick a new direction based on the randomly generated directionChoice
+            if(directionChoice == 0)
+                setDirection(direction1);
+            else
+                setDirection(direction2);
+        }
+        else if(direction1 != none) //Only the first turn can be made
+        {
+            setDirection(direction1);
+        }
+        else    //Only the second turn can be made
+        {
+            setDirection(direction2);
+        }
+        
+        return true;
+    }
+    return false;
 }
 //------------------------------------------
+
+
+
+
 
 
 /*
@@ -655,6 +718,9 @@ RegularProtester(world, levelNumber, TID_HARD_CORE_PROTESTER, DEFAULT_HEALTH_HAR
 
 void HardcoreProtestor::doSomething(){}
 //------------------------------------------
+
+
+
 
 
 
@@ -700,6 +766,10 @@ void Goodie::incTicksPassed()
 }
 //------------------------------------------
 
+
+
+
+
 /*
 *
 BARREL OF OIL CLASS IMPLEMENTATION BELOW
@@ -729,6 +799,11 @@ void BarrelOfOil::doSomething()
 	}
 }
 //------------------------------------------
+
+
+
+
+
 
 /*
  *
@@ -788,6 +863,11 @@ void GoldNugget::checkIfProtestorPickedUp()
 }
 //------------------------------------------
 
+
+
+
+
+
 /*
 *
 * WATER POOL CLASS IMPLEMENTATION BELOW
@@ -819,6 +899,10 @@ void WaterPool::doSomething()
 	}
 }
 //------------------------------------------
+
+
+
+
 
 /*
 *

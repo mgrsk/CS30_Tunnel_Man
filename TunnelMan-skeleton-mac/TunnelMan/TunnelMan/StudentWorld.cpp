@@ -299,7 +299,7 @@ double StudentWorld::getTunnelManDistance(const int x, const int y) const
 	return calculateEuclidianDistance(x, y, player->getX(), player->getY());
 }
 //---------------------------------------------------------------
-bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direction d)
+bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direction d) const
 {
     if(calculateEuclidianDistance(x, y, player->getX(), player->getY()) > 4.0)
         return false;   //Protester is too far
@@ -325,20 +325,19 @@ bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direct
     return false;
 }
 //---------------------------------------------------------------
-//FIXME - protesters are able to see through walls
-bool StudentWorld::tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::Direction &directionToTunnelMan)
+bool StudentWorld::tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::Direction &directionToTunnelMan) const
 {
     int tunnelManX = player->getX();    //Stores tunnelMan's x-coordinate. Avoids calling getX() too many times
     int tunnelManY = player->getY();    //Stores tunnelMan's y-coordinate. Avoids calling getY() too many times
     
-    if(x == tunnelManX)
+    if(x == tunnelManX) //If x coordinates are the same, TunnelMan is below or above protester
     {
         if(y > tunnelManY)
             directionToTunnelMan = GraphObject::down;
         else
             directionToTunnelMan = GraphObject::up;
     }
-    else if(y == tunnelManY)
+    else if(y == tunnelManY)    //If y coordinates are the same, TunnelMan is left or right of protester
     {
         if(x > tunnelManX)
             directionToTunnelMan = GraphObject::left;
@@ -348,12 +347,13 @@ bool StudentWorld::tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::D
     else
         return false; //TunnelMan must have one x or y coordinate in common with protester to be straight line away
     
-    //Continues to shift coordinates in TunnelMan's direction, to see if there is no Earth/Boulder's blocking the path to him
+    //Continues to shift coordinates in TunnelMan's direction, to see if there is no Earth/Boulders blocking the path to him
     while(noEarthBlocking(x, y, directionToTunnelMan) && noBouldersBlocking(x, y, directionToTunnelMan, nullptr))
     {
-        shiftCoordinates(x, y, 1, directionToTunnelMan);
-        if(x == tunnelManX || y == tunnelManY)
-            return true;    //The protester is able to reach TunnelMan without any earth/boulders blocking
+        shiftCoordinates(x, y, 1, directionToTunnelMan); //Shifting the coordinates 1 square closer to TunnelMan
+        
+        if(x == tunnelManX && y == tunnelManY)
+            return true;    //The protester is able to reach TunnelMan's coordinates without any earth/boulders blocking
     }
     
     return false;   //There was either Earth or a boulder blocking the path to TunnelMan

@@ -25,7 +25,7 @@
 #define MAX_TICKS_BOULDER_WAITING	(30)    //How long a boulder waits after the earth below it is cleared
 #define SQUIRT_LIFETIME             (4)     //How many ticks a squirt can exist
 #define TICKS_BETWEEN_SHOUTS        (15)    //How long a protester has to wait after shouting to be able to shout again
-#define TICKS_BETWEEN_TURNS         (20)    //How long a protester has to wait before making a turn
+#define TICKS_BETWEEN_TURNS         (200)   //How long a protester has to wait before making a turn
 
 //Different damage values
 #define DAMAGE_BOULDER              (20)    //How much damage a boulder does. It is high enough to kill anything instantly
@@ -227,10 +227,12 @@ private:
     
     int levelNumber;    //The current level that the gameWorld is at. Used for certain calculations
     int numSquaresToMoveInCurrentDirection; //The number of squares the protester wants to continue moving
-
-    void checkIfProtesterIsAtIntersection(); //If
+    
     void pickRandomDirection(); //Changes protester's direction randomly until one is picked that allows it to move at least one square
     void tryToMove();   //Attempts to move.
+    
+    //If the protester can turn perpendicular to its current direction, changes to that direction and returns true. Otherwise returns false
+    bool checkIfProtesterIsAtIntersection();
     
 public:
     RegularProtester(StudentWorld * world, int level, int imageID = TID_PROTESTER, int maxHealth = DEFAULT_HEALTH_PROTESTER);

@@ -72,8 +72,12 @@ public:
     bool areaIsClearOfEarth(const int x, const int y) const;
     
     /*
-     Determines if moving an object at x, y in the Direction specified by d would cause it
+     Determines if moving an object at x, y by 1 unit in the Direction specified by d would cause it
      to hit a boulder. Returns true if NO boulders would hit it, otherwise returns false.
+     The actor pointer is to ensure that a boulder calling this function does not count itself
+     as a boulder that it is about to hit. This function will have a few function calls where the argument
+     for this parameter is nullptr. This is because the object calling it is not a boulder,
+     so this field is irrelevant.
     */
     bool noBouldersBlocking(int x, int y, GraphObject::Direction d, Actor *object) const;
     
@@ -90,14 +94,14 @@ public:
      Checks if he is closing enough and if the protester is facing him. Returns true
      if so, otherwise returns false.
     */
-    bool canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direction d);
+    bool canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direction d) const;
     void shoutAtTunnelMan();    //Called by the protester class, causes TunnelMan to be annoyed.
     
     /*
      Checks if TunnelMan is within line of sight of a protester at x, y. The directionToTunnelMan
      variable will return by reference the direction a protester needs to move to get closer to TunnelMan.
      */
-    bool tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::Direction &directionToTunnelMan);
+    bool tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::Direction &directionToTunnelMan) const;
     
     /*
      Checks if there are any protesters within range of a gold nugget at x, y
