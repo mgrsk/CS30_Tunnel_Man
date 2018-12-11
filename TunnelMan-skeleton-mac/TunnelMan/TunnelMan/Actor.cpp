@@ -18,7 +18,7 @@ Actor::Actor(int imageID, int startX, int startY, Direction startDirection, Stud
 //------------------------------------------
 Actor::~Actor()
 {
-    world = nullptr;    //FIXME - is this needed?
+    world = nullptr;    
 }
 //------------------------------------------
 bool Actor::isAlive() const
@@ -357,6 +357,7 @@ void TunnelMan::doSomething()
                 break;
             }
 			case 'z':
+            case 'Z':
 			{
 				if (sonar_charges > 0) 
                 {
@@ -427,9 +428,10 @@ PROTESTOR CLASS IMPLEMENTATION BELOW
 *
 */
 
-RegularProtester::RegularProtester(StudentWorld * world, int level, int imageID, int maxHealth):
+RegularProtester::RegularProtester(StudentWorld * world, int level, int imageID, int maxHealth, int scoreFromBeingSquirted):
     People(imageID, START_X_PROTESTOR, START_Y_PROTESTOR, left, world, maxHealth),
-    leavingOilField(false), currentRestingTicks(0), levelNumber(level), stunned(false), totalNonRestingTicks(0)
+    leavingOilField(false), currentRestingTicks(0), levelNumber(level), stunned(false),
+    totalNonRestingTicks(0), scoreFromSquirt(scoreFromBeingSquirted)
 {
     ticksToWaitBetweenMoves = MAX(0, 3 - levelNumber / 4);
     setNumSquaresToMoveInCurrentDirection();
@@ -463,30 +465,30 @@ void RegularProtester::doSomething()
     
     if(leavingOilField)
     {
-        leaveOilField(); //FIXME - implement
+        leaveOilField();
         currentRestingTicks = 0;
         return;
         
     }
-    else if(getWorld()->canProteserShoutAtTunnelMan(getX(), getY(), getDirection()))
+    else if(getWorld()->getTunnelManDistance(getX(), getY()) <= 4.0
+            && getWorld()->canProteserShoutAtTunnelMan(getX(), getY(), getDirection()))
     {
-        //Checking that it has been at least 15 ticks since a shout occurred
         if(totalNonRestingTicks - nonRestingTickShoutedAt >= TICKS_BETWEEN_SHOUTS)
         {
             getWorld()->shoutAtTunnelMan();
             nonRestingTickShoutedAt = totalNonRestingTicks;
-            currentRestingTicks = 0;
-            return;
         }
+        currentRestingTicks = 0;
+        ++totalNonRestingTicks;
+        return;
     }
-    else if(getWorld()->getTunnelManDistance(getX(), getY()) >= 4.0) //Checking if TunnelMan is at least 4 units away
+    else if(getWorld()->getTunnelManDistance(getX(), getY()) > 4.0
+            && canProtesterDetectTunnelMan())
     {
-        if(canProtesterDetectTunnelMan())
-        {
             numSquaresToMoveInCurrentDirection = 0;
             currentRestingTicks = 0;
+            ++totalNonRestingTicks;
             return;
-        }
     }
     
     --numSquaresToMoveInCurrentDirection;
@@ -548,12 +550,11 @@ void RegularProtester::annoy(int damage)
             
             //Increasing the score based on how the protester was annoyed
             if(damage == DAMAGE_SQUIRT_GUN)
-                getWorld()->increaseScore(SCORE_REGULAR_SQUIRTED);
+                getWorld()->increaseScore(scoreFromSquirt);
             else
                 getWorld()->increaseScore(SCORE_PROTESTER_BONKED);
             
             leavingOilField = true;
-            stunned = false;    //Setting this to false in case protester was squirted before being bonked
             currentRestingTicks = ticksToWaitBetweenMoves; //Allowing protester to move immediately
         }
         else    //Protester was annoyed but still has health left
@@ -577,7 +578,7 @@ bool RegularProtester::bribe()
     return false;
 }
 //------------------------------------------
-void RegularProtester::leaveOilField() //FIXME - implement
+void RegularProtester::leaveOilField()
 {
     if(getX() == MAX_COORDINATE && getY() == MAX_COORDINATE)
     {
@@ -585,10 +586,11 @@ void RegularProtester::leaveOilField() //FIXME - implement
         getWorld()->decNumberOfProtesters();
         return;
     }
-    else //FIXME - implement
+    else
     {
-        //moveTowardsExit(); FIXME - implement this
-        moveTo(MAX_COORDINATE, MAX_COORDINATE);
+        Direction directionTowardsExit = getWorld()->getDirectionToExit(getX(), getY());
+        setDirection(directionTowardsExit);
+        moveInDirection(directionTowardsExit);
     }
     
 }
@@ -713,12 +715,10 @@ bool RegularProtester::canProtesterDetectTunnelMan()
  *
  */
 
-HardcoreProtestor::HardcoreProtestor(StudentWorld * world, int levelNumber):
-RegularProtester(world, levelNumber, TID_HARD_CORE_PROTESTER, DEFAULT_HEALTH_HARDCORE)
+HardcoreProtestor::HardcoreProtestor(StudentWorld * world, int levelNumber, int scoreFromBeingSquirted):
+RegularProtester(world, levelNumber, TID_HARD_CORE_PROTESTER, DEFAULT_HEALTH_HARDCORE, scoreFromBeingSquirted)
 {
 }
-//------------------------------------------
-//void HardcoreProtestor::annoy(int damage){}
 //------------------------------------------
 bool HardcoreProtestor::bribe()
 {

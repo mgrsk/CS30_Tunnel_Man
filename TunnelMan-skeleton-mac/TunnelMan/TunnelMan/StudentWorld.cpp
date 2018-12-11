@@ -2,13 +2,14 @@
 #include <string>
 #include <cmath>
 #include <random>
-#include <algorithm>
+#include <queue>
 #include <sstream>
 #include <iomanip>
 
 using namespace std;
 
-GameWorld* createStudentWorld(string assetDir)
+
+GameWorld* createStudentWorld(std::string assetDir)
 {
 	return new StudentWorld(assetDir);
 }
@@ -21,7 +22,8 @@ StudentWorld::StudentWorld(std::string assetDir): GameWorld(assetDir),
 StudentWorld::~StudentWorld()
 {
     destroyEarthField();  //De-initializes all earth objects
-	player.reset();
+    player.reset();
+    gameObjects.clear();
 }
 //---------------------------------------------------------------
 int StudentWorld::init()
@@ -68,8 +70,8 @@ void StudentWorld::cleanUp()
 //---------------------------------------------------------------
 void StudentWorld::setDisplayText() 
 {
-	stringstream gameText;
-	gameText << "Lvl: " << setw(2) << getLevel() << " "
+    stringstream gameText;
+    gameText << "Lvl: " << setw(2) << getLevel() << " "
 		<< "Lives: " << getLives() << " "
 		<< "Hlth: " << setw(3) << player->getHealth() * 10 << "% "
 		<< "Wtr: " << setw(2) << player->getNumSquirts() << " "
@@ -131,6 +133,108 @@ double StudentWorld::calculateEuclidianDistance(double x1, double y1, double x2,
 	double xDiffSquared = pow(x2 - x1, 2);  //(x2 - x1)^2
 	double yDiffSquared = pow(y2 - y1, 2);  //(y2 - y1)^2
 	return sqrt(xDiffSquared + yDiffSquared);   //sqrt((x2-x1)^2 + (y2-y1^2))
+}
+//---------------------------------------------------------------
+int StudentWorld::findOptimalPath(int startX, int startY, int goalX, int goalY, GraphObject::Direction &initialStep)
+{
+    GraphObject::Direction directions [] = {GraphObject::left, GraphObject::right,
+        GraphObject::down, GraphObject::up};
+    int stepsInEachDirection [] = {10000, 10000, 10000, 10000}; //Number of steps to reach goal starting left, right, down, up
+    
+    for(int i = 0; i < 4; ++i)
+    {
+        //Only checking the branches which aren't blocked to begin with
+        if(validatePoint(startX, startY, directions[i]))
+        {
+            int x = startX; //Will be the starting x point of that branch
+            int y = startY; //starting y point of the branch
+            
+            //Shifting the initial x,y coordinates in the appropriate direction
+            shiftCoordinates(x, y, 1, directions[i]);
+            
+            //Finds the number of steps to reach the goal starting in that particular direction
+            stepsInEachDirection[i] = findOptimalPathOfBranch(x, y, goalX, goalY);
+        }
+    }
+    
+    int min = 10000;
+    
+    for(int i = 0; i < 4; ++i)
+    {
+        if(min > stepsInEachDirection[i])
+        {
+            min = stepsInEachDirection[i];
+            initialStep = directions[i];
+        }
+    }
+    
+    return min;
+    
+}
+//---------------------------------------------------------------
+int StudentWorld::findOptimalPathOfBranch(int startX, int startY, int goalX, int goalY)
+{
+    GraphObject::Direction directions [] = {GraphObject::left, GraphObject::right,
+        GraphObject::down, GraphObject::up};
+    
+    std::queue<Point> points;
+    bool markedPoints [VIEW_WIDTH][VIEW_HEIGHT];
+    
+    for(int i = 0; i < VIEW_WIDTH; ++i)
+    {
+        for(int j = 0; j < VIEW_HEIGHT; ++j)
+        {
+            markedPoints[i][j] = false;
+        }
+    }
+    
+    Point nextPoint(startX, startY, 1); //Creating the initial point, which is 1 step from where the object is
+    points.push(nextPoint);
+    
+    while(!points.empty()) //Continue until the goal is found or no path exists
+    {
+        nextPoint = points.front();
+        points.pop();
+        
+        //Cycling through all 4 directions and adding valid points to the queue
+        for(int i = 0; i < 4; ++i)
+        {
+            if(nextPoint.x == goalX && nextPoint.y == goalY) //Found the goal
+                return nextPoint.numberOfStepsTaken;    //How many steps it would take to get there
+            
+            //Checking that there is no Earth/Boulders blocking that point
+            if(validatePoint(nextPoint.x, nextPoint.y, directions[i]))
+            {
+                int x = nextPoint.x;
+                int y = nextPoint.y;
+                
+                //Shifting x/y depending on the direction. New values will be used for the next point on the queue
+                shiftCoordinates(x, y, 1, directions[i]);
+                
+                //Checking that the point hasn't been visited yetstd::queue<Point> points;
+                if(!markedPoints[x][y])
+                {
+                    markedPoints[x][y] = true;
+                    
+                    //Creating point from new x,y values, and adding 1 to the number of steps taken to get there
+                    Point newPoint(x, y, nextPoint.numberOfStepsTaken + 1);
+                    points.push(newPoint);
+                }
+            }
+        }
+    }
+    
+    return 10000;
+}
+//---------------------------------------------------------------
+bool StudentWorld::validatePoint(int x, int y, GraphObject::Direction directionToCheck)
+{
+    if(noEarthBlocking(x, y, directionToCheck)
+       && noBouldersBlocking(x, y, directionToCheck, nullptr))
+    {
+        return true;
+    }
+    return false;
 }
 //---------------------------------------------------------------
 bool StudentWorld::areaIsClearOfObjects(const int x, const int y) const
@@ -301,18 +405,18 @@ double StudentWorld::getTunnelManDistance(const int x, const int y) const
 //---------------------------------------------------------------
 bool StudentWorld::canProteserShoutAtTunnelMan(int x, int y, GraphObject::Direction d) const
 {
-    if(calculateEuclidianDistance(x, y, player->getX(), player->getY()) > 4.0)
-        return false;   //Protester is too far
+    int amountToShift = 1;
+    
+    if(d == GraphObject::left || d == GraphObject::down)
+        amountToShift = 4;
     
     //Shifting x or y coordinate over 1 depending on direction protester is facing
-    if(!shiftCoordinates(x, y, 1, d))
+    if(!shiftCoordinates(x, y, amountToShift, d))
         return false;   //Protester is facing out of bounds
-    
-    /*
-     Iterating through shifted coordinates. If TunnelMan is within
-     the 16x16 grid that an object could occupy with these coordinates,
-     then the protester is facing him.
-     */
+
+    //Iterating through shifted coordinates. If TunnelMan is within
+    //the 16x16 grid that an object could occupy with these coordinates,
+    //then the protester is facing him.
     for(int i = x; i < x + SPRITE_WIDTH; ++i)
     {
         for(int j = y; j < y + SPRITE_HEIGHT; ++j)
@@ -361,7 +465,14 @@ bool StudentWorld::tunnelManIsInStraightLineOfSight(int x, int y, GraphObject::D
 //---------------------------------------------------------------
 int StudentWorld::getNumberOfMovesFromTunnelMan(int x, int y, GraphObject::Direction &directionToMove)
 {
-    return 100; //FIXME - implement
+    return findOptimalPath(x, y, player->getX(), player->getY(), directionToMove);
+}
+//---------------------------------------------------------------
+GraphObject::Direction StudentWorld::getDirectionToExit(int x, int y)
+{
+    GraphObject::Direction d;
+    findOptimalPath(x, y, MAX_COORDINATE, MAX_COORDINATE, d);
+    return d;
 }
 //---------------------------------------------------------------
 void StudentWorld::shoutAtTunnelMan()
@@ -370,7 +481,7 @@ void StudentWorld::shoutAtTunnelMan()
     playSound(SOUND_PROTESTER_YELL);
 }
 //---------------------------------------------------------------
-bool StudentWorld::shiftCoordinates(int &x, int &y, const int &amountToShift, GraphObject::Direction directionToShift) const
+bool StudentWorld::shiftCoordinates(int &x, int &y, const int amountToShift, GraphObject::Direction directionToShift) const
 {
     switch(directionToShift)
     {

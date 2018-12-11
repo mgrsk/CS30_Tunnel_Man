@@ -76,10 +76,6 @@ class StudentWorld; //Forwarding declaration
 //------------------------------------------
 class Actor : public GraphObject
 {
-private:
-    bool stillAlive;    //Tells us if object is still alive or not
-    StudentWorld * world;    //Allows classes to see the gameworld and use it's public functions
-    
 public:
     Actor(int imageID, int startX, int startY, Direction startDirection, StudentWorld * ptr, double size = STANDARD_IMAGE_SIZE, int depth = DEPTH_FOREGROUND, bool shouldDisplay = true);
     ~Actor();
@@ -105,6 +101,10 @@ public:
     virtual bool canBeAnnoyed() const;  //Returns false for all classes except for TunnelMan and protester classes
     virtual bool isBoulder() const; //Returns false for all classes except the boulder class
     
+private:
+    bool stillAlive;    //Tells us if object is still alive or not
+    StudentWorld * world;    //Allows classes to see the gameworld and use it's public functions
+    
 };
 
 //------------------------------------------
@@ -126,9 +126,6 @@ public:
 
 class Boulder : public Actor
 {
-private:
-    bool atRest; //Variable which is true until the Earth below the boulder is destroyed
-    size_t ticksWaiting; //Keeps track of how many ticks have passed since the boulder stopped being at rest
 public:
     Boulder(int x, int y, StudentWorld * world);
     
@@ -136,7 +133,9 @@ public:
     void doSomething() override;
     bool isBoulder() const override;
     
-    
+private:
+    bool atRest; //Variable which is true until the Earth below the boulder is destroyed
+    size_t ticksWaiting; //Keeps track of how many ticks have passed since the boulder stopped being at rest
 };
 
 //------------------------------------------
@@ -149,11 +148,12 @@ public:
 
 class Squirt : public Actor
 {
-private:
-    int ticksAlive; //Keeps track of how long the squirt object has been alive for.
 public:
     Squirt(int x, int y, Direction startDirection, StudentWorld * world);
     void doSomething();
+    
+private:
+    int ticksAlive; //Keeps track of how long the squirt object has been alive for.
 };
 
 /*
@@ -164,9 +164,6 @@ public:
 
 class People : public Actor
 {
-private:
-    int health; //Keeps track of how much health TunnelMan and protester objects have
-    
 public:
     //Max health is the starting value for the health member variable
     People(int imageID, int x, int y, Direction startDirection, StudentWorld * world, int maxHealth);
@@ -174,24 +171,21 @@ public:
     bool canBeAnnoyed() const final;    //Overrides canBeAnnoyed() to return true
     int getHealth() const;              //Returns the amount of health the object has
     void takeDamage(int damage);        //Lowers health by specified damage. Calls setDead() if health <= 0
+    
+private:
+    int health; //Keeps track of how much health TunnelMan and protester objects have
 };
 
 //------------------------------------
 
 class TunnelMan: public People
 {
-private:
-    //ITEM COUNT VARIABLES
-    size_t gold_nuggets;    //Keeps track of the number of gold nuggets TunnelMan has
-    size_t sonar_charges;   //Number of sonar charges
-    size_t num_squirts;     //Number of squirts
-    
 public:
     TunnelMan(StudentWorld * world);
-    ~TunnelMan(); //FIXME - is this needed?
+    ~TunnelMan();
     
     void doSomething() override;
-	void annoy(int damage) override;
+    void annoy(int damage) override;
     
     //ACCESSORS
     size_t getGoldNugs() const;     //Returns gold_nuggets
@@ -203,6 +197,11 @@ public:
     void incSonarCharges();         //Increases sonar_charges by 1
     void increaseNumSquirts();      //Increases num_squirts by 5
     
+private:
+    //ITEM COUNT VARIABLES
+    size_t gold_nuggets;    //Keeps track of the number of gold nuggets TunnelMan has
+    size_t sonar_charges;   //Number of sonar charges
+    size_t num_squirts;     //Number of squirts
     
 };
 
@@ -216,13 +215,37 @@ public:
 
 class RegularProtester : public People
 {
+    
+public:
+    RegularProtester(StudentWorld * world, int level, int imageID = TID_PROTESTER,
+        int maxHealth = DEFAULT_HEALTH_PROTESTER, int scoreFromBeingSquirted = SCORE_REGULAR_SQUIRTED);
+    
+    virtual void doSomething() override;
+    virtual bool bribe() override;
+    void annoy(int damage) override;
+    
+    void leaveOilField();
+    void setNumSquaresToMoveInCurrentDirection();
+
+protected:
+    //levelNumber is the current level that the gameWorld is at. Used for certain
+    //calculations. Stored to avoid calling getWorld()->getLevel() too many times.
+    int levelNumber;
+    int ticksToWaitBetweenMoves;  //The minimum number of ticks a protester must wait between actions
+    int scoreFromSquirt; //The score value for a protester being squirted
+    bool leavingOilField;  //Keeps track of whether the protester is leaving the oil field
+    
+    //Stunned is true if the protester is hit by a squirt, or if it is a hardcore protester that was bribed.
+    //Prevents protester from moving, until after a certain number of ticks when it goes back to false
+    bool stunned;
+    
 private:
     int currentRestingTicks;   //Number of ticks since last movement
     int nonRestingTickShoutedAt;    //Keeps track of when a protester last shouted
     int totalNonRestingTicks;  //Stores total number of non-resting ticks
     int lastTickTurnMade; //Stores the last tick that a protester turned at
     int numSquaresToMoveInCurrentDirection; //The number of squares the protester wants to continue moving
-
+    
     void pickRandomDirection(); //Changes protester's direction randomly until one is picked that allows it to move at least one square
     void tryToMove();   //Attempts to move.
     void moveTowardsExit(); //Takes a step towards the exit when a protester is in a leaveOilField state
@@ -237,27 +260,6 @@ private:
      */
     virtual bool canProtesterDetectTunnelMan();
     
-protected:
-    //levelNumber is the current level that the gameWorld is at. Used
-    //for certain calculations. Stored to avoid calling getWorld()->getLevel()
-    //too many times. FIXME - is this necessary?
-    int levelNumber;
-    int ticksToWaitBetweenMoves;  //The minimum number of ticks a protester must wait between actions
-    bool leavingOilField;  //Keeps track of whether the protester is leaving the oil field
-    
-    //Stunned is true if the protester is hit by a squirt, or if it is a hardcore protester that was bribed.
-    //Prevents protester from moving, until after a certain number of ticks when it goes back to false
-    bool stunned;
-    
-public:
-    RegularProtester(StudentWorld * world, int level, int imageID = TID_PROTESTER, int maxHealth = DEFAULT_HEALTH_PROTESTER);
-    
-	virtual void doSomething() override;
-    virtual bool bribe() override;
-	void annoy(int damage) override;
-    
-	void leaveOilField();
-    void setNumSquaresToMoveInCurrentDirection();
 };
 
 //------------------------------------------
@@ -265,7 +267,7 @@ public:
 class HardcoreProtestor : public RegularProtester
 {
 public:
-    HardcoreProtestor(StudentWorld * world, int levelNumber);
+    HardcoreProtestor(StudentWorld * world, int levelNumber, int scoreFromBeingSquirted = SCORE_HARDCORE_SQUIRTED);
     
     bool bribe() override;
     //void annoy(int damage) override;
