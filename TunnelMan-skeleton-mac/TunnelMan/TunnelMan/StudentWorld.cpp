@@ -139,46 +139,10 @@ int StudentWorld::findOptimalPath(int startX, int startY, int goalX, int goalY, 
 {
     GraphObject::Direction directions [] = {GraphObject::left, GraphObject::right,
         GraphObject::down, GraphObject::up};
-    int stepsInEachDirection [] = {10000, 10000, 10000, 10000}; //Number of steps to reach goal starting left, right, down, up
-    
-    for(int i = 0; i < 4; ++i)
-    {
-        //Only checking the branches which aren't blocked to begin with
-        if(validatePoint(startX, startY, directions[i]))
-        {
-            int x = startX; //Will be the starting x point of that branch
-            int y = startY; //starting y point of the branch
-            
-            //Shifting the initial x,y coordinates in the appropriate direction
-            shiftCoordinates(x, y, 1, directions[i]);
-            
-            //Finds the number of steps to reach the goal starting in that particular direction
-            stepsInEachDirection[i] = findOptimalPathOfBranch(x, y, goalX, goalY);
-        }
-    }
-    
-    int min = 10000;
-    
-    for(int i = 0; i < 4; ++i)
-    {
-        if(min > stepsInEachDirection[i])
-        {
-            min = stepsInEachDirection[i];
-            initialStep = directions[i];
-        }
-    }
-    
-    return min;
-    
-}
-//---------------------------------------------------------------
-int StudentWorld::findOptimalPathOfBranch(int startX, int startY, int goalX, int goalY)
-{
-    GraphObject::Direction directions [] = {GraphObject::left, GraphObject::right,
-        GraphObject::down, GraphObject::up};
     
     std::queue<Point> points;
     bool markedPoints [VIEW_WIDTH][VIEW_HEIGHT];
+    Point nextPoint;
     
     for(int i = 0; i < VIEW_WIDTH; ++i)
     {
@@ -188,8 +152,24 @@ int StudentWorld::findOptimalPathOfBranch(int startX, int startY, int goalX, int
         }
     }
     
-    Point nextPoint(startX, startY, 1); //Creating the initial point, which is 1 step from where the object is
-    points.push(nextPoint);
+    //This loop adds the inital branches to the Queue. It keeps track of which direction it started from
+    for(int i = 0; i < 4; ++i)
+    {
+        int x = startX;
+        int y = startY;
+        
+        //Shifting coordinates based on direction
+        
+        if(validatePoint(x, y, directions[i]))
+        {
+            if(shiftCoordinates(x, y, 1, directions[i]))
+            {
+                markedPoints[x][y] = true;
+                Point p(x, y, 1, directions[i]);
+                points.push(p);
+            }
+        }
+    }
     
     while(!points.empty()) //Continue until the goal is found or no path exists
     {
@@ -200,7 +180,11 @@ int StudentWorld::findOptimalPathOfBranch(int startX, int startY, int goalX, int
         for(int i = 0; i < 4; ++i)
         {
             if(nextPoint.x == goalX && nextPoint.y == goalY) //Found the goal
-                return nextPoint.numberOfStepsTaken;    //How many steps it would take to get there
+            {
+                //clearing the queue, so that we can break out of the while loop after breaking out of the for loop
+                points = queue<Point>();
+                break;
+            }
             
             //Checking that there is no Earth/Boulders blocking that point
             if(validatePoint(nextPoint.x, nextPoint.y, directions[i]))
@@ -209,22 +193,24 @@ int StudentWorld::findOptimalPathOfBranch(int startX, int startY, int goalX, int
                 int y = nextPoint.y;
                 
                 //Shifting x/y depending on the direction. New values will be used for the next point on the queue
-                shiftCoordinates(x, y, 1, directions[i]);
-                
-                //Checking that the point hasn't been visited yetstd::queue<Point> points;
-                if(!markedPoints[x][y])
+                if(shiftCoordinates(x, y, 1, directions[i]))
                 {
-                    markedPoints[x][y] = true;
-                    
-                    //Creating point from new x,y values, and adding 1 to the number of steps taken to get there
-                    Point newPoint(x, y, nextPoint.numberOfStepsTaken + 1);
-                    points.push(newPoint);
+                    //Checking that the point hasn't been visited yet
+                    if(!markedPoints[x][y])
+                    {
+                        markedPoints[x][y] = true;
+                        
+                        //Creating point from new x,y values, and adding 1 to the number of steps taken to get there
+                        Point newPoint(x, y, nextPoint.numberOfStepsTaken + 1, nextPoint.initialStepToReachPoint);
+                        points.push(newPoint);
+                    }
                 }
             }
         }
     }
     
-    return 10000;
+    initialStep = nextPoint.initialStepToReachPoint;
+    return nextPoint.numberOfStepsTaken;
 }
 //---------------------------------------------------------------
 bool StudentWorld::validatePoint(int x, int y, GraphObject::Direction directionToCheck)

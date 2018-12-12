@@ -161,7 +161,6 @@ private:
 	double calculateEuclidianDistance(double x1, double y1, double x2, double y2) const; //Calculates the distance between x1,y1 and x2,y2
     
     int findOptimalPath(int startX, int startY, int goalX, int goalY, GraphObject::Direction &initialStep);
-    int findOptimalPathOfBranch(int startX, int startY, int goalX, int goalY);
     bool validatePoint(int x, int y, GraphObject::Direction directionToCheck);
     
 
@@ -174,15 +173,17 @@ struct Point
     int x;
     int y;
     int numberOfStepsTaken;
+    GraphObject::Direction initialStepToReachPoint;
     
-    Point(int xCoord = 0, int yCoord = 0, int numSteps = 0):
-        x(xCoord), y(yCoord), numberOfStepsTaken(numSteps){}
+    Point(int xCoord = 0, int yCoord = 0, int numSteps = 0, GraphObject::Direction initialStep = GraphObject::none):
+        x(xCoord), y(yCoord), numberOfStepsTaken(numSteps), initialStepToReachPoint(initialStep){}
     
     Point & operator=(Point rhs)
     {
         x = rhs.x;
         y = rhs.y;
         numberOfStepsTaken = rhs.numberOfStepsTaken;
+        initialStepToReachPoint = rhs.initialStepToReachPoint;
         return *this;
     }
 };
